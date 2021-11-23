@@ -21,11 +21,13 @@ import androidx.compose.ui.input.mouse.mouseScrollFilter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerMoveFilter
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import dev.zieger.plottingcompose.scopes.*
 import org.jetbrains.skia.Font
+import org.jetbrains.skia.TextLine
 import kotlin.math.absoluteValue
 import kotlin.math.sqrt
 
@@ -35,9 +37,7 @@ fun Plot(
     parameter: IParameter = PlotParameter(),
     colors: IPlotColors = PlotColors(),
     block: ItemScope.() -> Unit
-) {
-    Plot(modifier, parameter, colors, PlotScope(), block)
-}
+): PlotHandler = Plot(modifier, parameter, colors, PlotScope(), block)
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -47,82 +47,87 @@ private fun Plot(
     colors: IPlotColors,
     plotScope: IPlotScope,
     block: ItemScope.() -> Unit
-) {
-    PlotParameterScope(plotScope, parameter.withPlotScope(plotScope), colors).apply {
-        val allSeries = remember { mutableStateListOf<Series<*>>() }
-        Canvas(modifier.fillMaxSize().onSizeChanged { plotSize.value = it }
-            .mouseScrollFilter { event, _ ->
-                if (!enableScale) return@mouseScrollFilter false
+): PlotHandler = PlotParameterScope(plotScope, parameter.withPlotScope(plotScope), colors).run {
+    val allSeries = remember { mutableStateListOf<Series<*>>() }
+    Canvas(modifier.fillMaxSize().onSizeChanged { plotSize.value = it }
+        .mouseScrollFilter { event, _ ->
+            if (!enableScale) return@mouseScrollFilter false
 
-                if (event.orientation == MouseScrollOrientation.Vertical)
-                    ((event.delta as? MouseScrollUnit.Line)?.value
-                        ?: (event.delta as? MouseScrollUnit.Page)?.value)?.also { delta ->
-                        val newScale = (scale.value + 1 / delta).coerceAtLeast(1f)
-                        when {
-                            newScale < scale.value -> {
-                                val diff = scale.value - newScale
-                                val percent = diff / (scale.value - 1f)
-                                translation.value = translation.value * (1f - percent)
-                            }
-                        }
-                        scale.value = newScale
-                        mousePosition.value?.also { pos ->
-                            val prev = scaleCenter.value
-                            scaleCenter.value =
-                                (scaleCenter.value + (pos - scaleCenter.value) / scale.value) - translation.value / scale.value
-                            println("mouse: $pos; scaleCenter=$prev -> ${scaleCenter.value}; scale=${scale.value}")
+            if (event.orientation == MouseScrollOrientation.Vertical)
+                ((event.delta as? MouseScrollUnit.Line)?.value
+                    ?: (event.delta as? MouseScrollUnit.Page)?.value)?.also { delta ->
+                    val newScale = (scale.value + 1 / delta).coerceAtLeast(1f)
+                    when {
+                        newScale < scale.value -> {
+                            val diff = scale.value - newScale
+                            val percent = diff / (scale.value - 1f)
+                            translation.value = translation.value * (1f - percent)
                         }
                     }
-                true
-            }
-            .pointerInput(Unit) {
-                detectDragGestures { _, dragAmount ->
-                    if (!enableTranslation) return@detectDragGestures
-
-                    translation.value = (translation.value + dragAmount)
+                    scale.value = newScale
+                    mousePosition.value?.also { pos ->
+                        val prev = scaleCenter.value
+                        scaleCenter.value =
+                            (scaleCenter.value + (pos - scaleCenter.value) / scale.value) - translation.value / scale.value
+                        println("mouse: $pos; scaleCenter=$prev -> ${scaleCenter.value}; scale=${scale.value}")
+                    }
                 }
-            }
-            .pointerMoveFilter(onMove = {
-                mousePosition.value = it
-                true
-            }, onExit = {
-                mousePosition.value = null
-                false
-            })
-        ) {
-            PlotDrawScope(this@apply, this, allSeries).draw()
+            true
         }
+        .pointerInput(Unit) {
+            detectDragGestures { _, dragAmount ->
+                if (!enableTranslation) return@detectDragGestures
 
-        fun IPlotParameterScope.applyTranslationOffset() {
-            val items = allSeries.flatMap { it.items }
-            if (items.isEmpty()) return
-
-            val yRange = items.minOf { it.yMin.toFloat() }..items.maxOf { it.yMax.toFloat() }
-            val xRange = items.minOf { it.x.toFloat() }..items.maxOf { it.x.toFloat() }
-
-            val plotWidth =
-                plotSize.value.width - horizontalPadding.value * 2 - horizontalPlotPadding.value * 2 - plotYLabelWidth.value
-            val plotHeight =
-                plotSize.value.height - verticalPadding.value * 2 - verticalPlotPadding.value * 2 - plotXLabelHeight.value
-
-            val widthFactor = xRange.run { endInclusive - start } / plotWidth
-            val heightFactor = yRange.run { endInclusive - start } / plotHeight
-
-            translationOffset.value = Offset(-xRange.start / widthFactor, yRange.start / heightFactor)
+                translation.value = (translation.value + dragAmount)
+            }
         }
-
-        ItemScope({ series ->
-            if (series !in allSeries || allSeries.size != 1) {
-                allSeries.clear()
-                allSeries.add(series)
-            }
-        }, { series ->
-            if (series !in allSeries) {
-                allSeries.add(series)
-            }
-        }).block()
-        applyTranslationOffset()
+        .pointerMoveFilter(onMove = {
+            mousePosition.value = it
+            true
+        }, onExit = {
+            mousePosition.value = null
+            false
+        })
+    ) {
+        PlotDrawScope(this@run, this, allSeries).draw()
     }
+
+    fun IPlotParameterScope.applyTranslationOffset() {
+        val items = allSeries.flatMap { it.items }
+        if (items.isEmpty()) return
+
+        val yRange = items.minOf { it.yMin.toFloat() }..items.maxOf { it.yMax.toFloat() }
+        val xRange = items.minOf { it.x.toFloat() }..items.maxOf { it.x.toFloat() }
+
+        val plotWidth =
+            plotSize.value.width - horizontalPadding.value * 2 - horizontalPlotPadding.value * 2 - plotYLabelWidth.value
+        val plotHeight =
+            plotSize.value.height - verticalPadding.value * 2 - verticalPlotPadding.value * 2 - plotXLabelHeight.value
+
+        val widthFactor = xRange.run { endInclusive - start } / plotWidth
+        val heightFactor = yRange.run { endInclusive - start } / plotHeight
+
+        translationOffset.value = Offset(-xRange.start / widthFactor, yRange.start / heightFactor)
+    }
+
+    ItemScope({ series ->
+        if (series !in allSeries || allSeries.size != 1) {
+            allSeries.clear()
+            allSeries.add(series)
+        }
+    }, { series ->
+        if (series !in allSeries) {
+            allSeries.add(series)
+        }
+    }).block()
+    applyTranslationOffset()
+
+    PlotHandler({ scale.value = it }, { translation.value = it },
+        {
+            scale.value = 1f
+            translation.value = Offset.Zero
+            scaleCenter.value = Offset.Zero
+        })
 }
 
 private operator fun IntSize.div(fl: Float): Offset {
@@ -168,7 +173,7 @@ private fun IPlotDrawScope.drawPlot(
     val start = horizontalPadding.value
     val top = verticalPadding.value
     val end = plotSize.value.width.toFloat() - horizontalPadding.value - plotYLabelWidth.value
-    val bottom = plotSize.value.height.toFloat() - verticalPlotPadding.value - plotXLabelHeight.value
+    val bottom = plotSize.value.height.toFloat() - verticalPadding.value - plotXLabelHeight.value
     if (start > end || top > bottom) return null
 
     clipRect(start, top, end, bottom) {
@@ -223,7 +228,11 @@ private fun IPlotDrawScope.applyFocusedFlag(axis: Axis, offsets: Map<SeriesItem<
 }
 
 internal fun IPlotParameterScope.mappedOffset(offset: Offset): Offset =
-    (scaleCenter.value + (offset - scaleCenter.value) / scale.value) - translationOffset.value - translation.value / scale.value
+    try {
+        (scaleCenter.value + (offset - scaleCenter.value) / scale.value) - translationOffset.value - translation.value / scale.value
+    } catch (t: Throwable) {
+        Offset.Zero
+    }
 
 internal fun IPlotParameterScope.mappedMousePosition(): Offset =
     mousePosition.value?.let { mappedOffset(it) } ?: Offset.Infinite
@@ -433,14 +442,26 @@ private fun IPlotDrawScope.drawXAxis() {
     }
 }
 
-fun DrawScope.drawText(text: String, offset: Offset, size: Float, color: Color, scale: Float = 1f) {
+fun DrawScope.drawText(text: String, offset: Offset, size: Float, color: Color, scale: Float = 1f, align: TextAlign = TextAlign.Start) {
     drawIntoCanvas {
+        val font = Font(null, size, scale, 0f)
+        val textLine = TextLine.make(text, font)
+        val off = when (align) {
+            TextAlign.Center, TextAlign.Justify -> offset - Offset(textLine.width / 2f, -textLine.height / 2f)
+            TextAlign.End, TextAlign.Right -> offset + Offset(textLine.width / 2f, -textLine.height / 2f)
+            else -> offset
+        }
         it.nativeCanvas.drawString(
-            text, offset.x, offset.y,
-            Font(null, size, scale, 0f), Paint().asFrameworkPaint().apply {
+            text, off.x, off.y, font, Paint().asFrameworkPaint().apply {
                 isAntiAlias = true
                 this.color = color.toArgb()
             }
         )
     }
 }
+
+data class PlotHandler(
+    val scale: (Float) -> Unit,
+    val translate: (Offset) -> Unit,
+    val resetTransformations: () -> Unit
+)

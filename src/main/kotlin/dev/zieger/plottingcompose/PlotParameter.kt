@@ -116,6 +116,8 @@ fun IPlotParameterScope.defaultGridSize(items: List<SeriesItem<*>>): Dp {
     val hHeight = plotSize.value.height - verticalPadding.value * 2 - verticalPlotPadding.value * 2
     val heightFactor = vHeight / hHeight
     val tickHeight = vHeight / 10
+    if (tickHeight.isNaN() || tickHeight.isInfinite()) return 50.dp
+
     val tickHeightBd = tickHeight.toBigDecimal()
     val scaledTickHeight = tickHeightBd.round(MathContext(1, RoundingMode.HALF_UP)).toInt()
     return (scaledTickHeight / heightFactor).dp
@@ -126,6 +128,8 @@ fun IPlotParameterScope.defaultYTicks(items: List<SeriesItem<*>>): List<Pair<Num
     val vRange = items.minOf { it.yMin.toFloat() }..items.maxOf { it.yMax.toFloat() }
     val vHeight = vRange.run { endInclusive - start }
     val tickHeight = vHeight / 10 / scale.value
+     if (tickHeight.isInfinite() || tickHeight.isNaN()) return emptyList()
+
     val scaledTickHeight = tickHeight.toBigDecimal().round(MathContext(1, RoundingMode.HALF_UP)).toFloat()
     return (0..(vHeight / scaledTickHeight).toInt().plus(10) step 1)
         .map { vRange.start - vRange.start % scaledTickHeight + it * scaledTickHeight }
@@ -140,6 +144,8 @@ fun IPlotScope.defaultXTicks(items: List<SeriesItem<*>>): List<Pair<Number, Stri
     val vRange = items.minOf { it.x.toLong() }..items.maxOf { it.x.toLong() }
     val vWidth = vRange.run { endInclusive - start }
     val tickWidth = vWidth / 10 / scale.value
+    if (tickWidth.isInfinite() || tickWidth.isNaN()) return emptyList()
+
     val tickWidthBd = tickWidth.toBigDecimal()
     val scaledTickWidth = tickWidthBd.round(MathContext(1, RoundingMode.HALF_UP)).toFloat()
     return (0..(vWidth / scaledTickWidth).toInt() step 1)

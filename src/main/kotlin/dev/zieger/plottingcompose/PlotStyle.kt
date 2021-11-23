@@ -8,9 +8,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
+import org.jetbrains.skia.Font
+import org.jetbrains.skia.TextLine
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
@@ -229,9 +233,10 @@ data class Label<T>(
         map: Offset.() -> Offset
     ) {
         val c = content(item)
-        val lines = c.count { it == '\n' }
-        val labelWidth = c.split('\n').maxOf { it.length } * fontSize * 0.62f / ((scale.value - 1f) * 0.65f + 1f)
-        val labelHeight = (lines + 1) * fontSize * 0.91f / scale.value
+        val font = Font(null, fontSize)
+        val lines = c.split('\n').map { it to TextLine.make(it, font) }
+        val labelWidth = lines.maxOf { it.second.width } / scale.value
+        val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value
 
         val position = mousePosition.value ?: offset
         val widthRange = horizontalPadding.value + horizontalPlotPadding.value..
@@ -265,13 +270,23 @@ data class Label<T>(
             Fill, backgroundColor.alpha)
         drawRoundRect(borderColor, startTop, size, CornerRadius(borderRoundCorner / scale.value, borderRoundCorner / scale.value),
             Stroke(borderWidth / scale.value), borderColor.alpha)
-        drawText(
-            c,
-            startTop.copy(x = startTop.x + padding / scale.value, y = startTop.y + labelHeight + padding / scale.value),
-            fontSize / scale.value,
-            contentColor,
-            fontScale
-        )
+        lines.forEachIndexed { idx, line ->
+            val scale = this@draw.scale.value
+            val off = startTop.copy(
+                x = startTop.x + padding / scale,
+                y = startTop.y + (lines.take(idx + 1).sumOf { it.second.height.toInt() }) / scale
+            )
+            scale(1 / scale, 1 / scale, off) {
+                drawText(
+                    line.first,
+                    off,
+                    fontSize,
+                    contentColor,
+                    1f,
+                    TextAlign.Start
+                )
+            }
+        }
     }
 }
 

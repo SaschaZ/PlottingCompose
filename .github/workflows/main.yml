@@ -1,0 +1,26 @@
+name: Plotting Compose CI
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+#  workflow_dispatch:
+
+jobs:      
+  build:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
+
+        - uses: actions/setup-java@v1
+          with:
+            java-version: 15
+
+        - name: Set output
+          id: vars
+          run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+
+        - name: Build with Gradle
+          run: ./applyTag.sh ${{ steps.vars.outputs.tag }} && ./gradlew publish -PziegerDevReleasesUsername=${{secrets.DEPLOY_USER}} -PziegerDevReleasesPassword=${{secrets.DEPLOY_PASS}}
+

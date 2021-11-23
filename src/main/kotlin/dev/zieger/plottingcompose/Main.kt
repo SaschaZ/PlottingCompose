@@ -27,13 +27,13 @@ fun main() = application {
             var lastClose: Float? = null
             Series((0..250).map {
                 OhclItem(randomOhcl(it.toLong(), lastClose).also { c -> lastClose = c.close },
-                    Focusable(CandleSticks(), CandleSticks(Color.Yellow, Color.Blue)), Focusable(EmtpyPlotStyle(), Label { i -> "${i.time}" }))
+                    Focusable(CandleSticks(), CandleSticks(Color.Yellow, Color.Blue)), Focusable(EmtpyPlotStyle(), Label { i -> "${i.time}\n${i.close}" }))
             })
         }
         val values = remember {
             Series((-100..100).map {
                 SeriesItem(
-                    Unit, it, -it.toDouble().pow(4),
+                    Unit, it, -it.toDouble().pow(2) / 1000000000,
                     Focusable(
                         Dot(Color.Black.copy(alpha = 0.5f)),
                         Dot(Color.Black.copy(alpha = 0.5f), width = 50f)
@@ -45,7 +45,7 @@ fun main() = application {
         val values2 = remember {
             Series((-100..100).map {
                 SeriesItem(
-                    Unit, it, it.toDouble().pow(4),
+                    Unit, it, it.toDouble().pow(2) / 1000000000,
                     Focusable(
                         Dot(Color.Black.copy(alpha = 0.5f)),
                         Dot(Color.Black.copy(alpha = 0.5f), width = 50f)
@@ -55,10 +55,10 @@ fun main() = application {
         }
 
         Window(onCloseRequest = ::exitApplication) {
-            Plot(parameter = PlotParameter(plotYLabelWidth = { 150.dp }, focusAxis = Axis.X)) {
-//                add(values2)
-//                add(values)
-                add(candles)
+            Plot(parameter = PlotParameter(plotYLabelWidth = { 150.dp }, focusAxis = Axis.BOTH)) {
+                add(values2)
+                add(values)
+//                add(candles)
             }
         }
     }
