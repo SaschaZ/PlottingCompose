@@ -51,10 +51,6 @@ publishing {
         maven {
             name = "ziegerDevReleases"
             setUrl("https://maven.zieger.dev/releases")
-            credentials {
-                username = "root"
-                password = "E4oPO5MW/YtmUU/11S39TpaiusCl9Uh/hFlbuuIzJ1ide7iga5USowFWxvoB/35k"
-            }
             authentication {
                 withType<BasicAuthentication>()
             }
