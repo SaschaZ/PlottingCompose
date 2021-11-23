@@ -22,5 +22,5 @@ jobs:
           run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
 
         - name: Build with Gradle
-          run: ./applyTag.sh ${{ steps.vars.outputs.tag }} && ./gradlew publish -PziegerDevReleasesUsername=${{secrets.DEPLOY_USER}} -PziegerDevReleasesPassword=${{secrets.DEPLOY_PASS}}
+          run: ./applyTag.sh ${{ steps.vars.outputs.tag }} ${{secrets.DEPLOY_USER}} ${{secrets.DEPLOY_PASS}} && ./gradlew publish
 
