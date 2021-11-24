@@ -1,9 +1,13 @@
 package dev.zieger.plottingcompose
 
 import androidx.compose.material.MaterialTheme
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import java.lang.Float.max
@@ -25,10 +29,22 @@ fun main() = application {
 
         val candles = remember {
             var lastClose: Float? = null
-            Series((0..250).map {
+            Series((0..100).map {
                 OhclItem(randomOhcl(it.toLong(), lastClose).also { c -> lastClose = c.close },
-                    Focusable(CandleSticks(), CandleSticks(Color.Yellow, Color.Blue)), Focusable(EmtpyPlotStyle(), Label { i -> "${i.time}\n${i.close}" }))
+                    Focusable(CandleSticks(), CandleSticks(Color.Yellow, Color.Blue)),
+                    Focusable(EmtpyPlotStyle(), Label { i -> "${i.time}\n${i.close}" })
+                )
             })
+        }
+        val sma = remember {
+            val closes = candles.items.map { it.x to it.data.close }
+            closes.mapIndexed { idx, (x, _) ->
+                x to closes.subList((idx - 24).coerceAtLeast(0), idx)
+                    .map { it.second }.average()
+            }
+                .map { (x, sma) -> if (sma.isNaN() || sma.isInfinite()) x to 0f else x to sma }
+                .map { (x, sma) -> SeriesItem(sma, x, sma, Line(Color.Magenta, 2f)) }
+                .toSeries()
         }
         val values = remember {
             Series((-100..100).map {
@@ -39,8 +55,7 @@ fun main() = application {
                         Dot(Color.Black.copy(alpha = 0.5f), width = 50f)
                     ), Line()
                 )
-            })
-                .withPreDrawer(Filled(Color.Magenta.copy(alpha = 0.5f)))
+            }).withPreDrawer(Filled(Color.Magenta.copy(alpha = 0.5f)))
         }
         val values2 = remember {
             Series((-100..100).map {
@@ -54,11 +69,28 @@ fun main() = application {
             }).withPreDrawer(Filled(Color.Cyan.copy(alpha = 0.5f), upWards = true))
         }
 
-        Window(onCloseRequest = ::exitApplication) {
-            Plot(parameter = PlotParameter(plotYLabelWidth = { 150.dp }, focusAxis = Axis.BOTH)) {
-                add(values2)
-                add(values)
-//                add(candles)
+        val ctrlPressed: MutableState<Boolean> = remember { mutableStateOf(false) }
+        val shiftPressed: MutableState<Boolean> = remember { mutableStateOf(false) }
+        val altPressed: MutableState<Boolean> = remember { mutableStateOf(false) }
+        Window(onCloseRequest = ::exitApplication, onKeyEvent = {
+            ctrlPressed.value = it.isCtrlPressed
+            shiftPressed.value = it.isShiftPressed
+            altPressed.value = it.isAltPressed
+            false
+        }) {
+            Plot(
+                parameter = PlotParameter(
+                    focusAxis = Axis.X, scrollAction = when {
+                        ctrlPressed.value && !shiftPressed.value && !altPressed.value -> ScrollAction.WIDTH_FACTOR
+                        !ctrlPressed.value && shiftPressed.value && !altPressed.value -> ScrollAction.X_TRANSLATION
+                        else -> ScrollAction.SCALE
+                    }
+                )
+            ) {
+//                plot(0.5f) {
+                add(candles)
+                add(sma)
+//                }
             }
         }
     }

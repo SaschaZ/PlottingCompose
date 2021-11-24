@@ -23,8 +23,6 @@ interface IParameter {
 
     fun IPlotParameterScope.plotYTicks(items: List<SeriesItem<*>>): List<Pair<Number, String>>
     fun IPlotParameterScope.plotXTicks(items: List<SeriesItem<*>>): List<Pair<Number, String>>
-    val plotYLabelWidth: Dp
-    val plotXLabelHeight: Dp
     val plotLabelFontSize: Float
     val plotTickLength: Dp
     val plotTickWidth: Float
@@ -41,10 +39,12 @@ interface IParameter {
 
     val focusAxis: Axis
 
+    val scrollAction: ScrollAction
     fun withPlotScope(plotScope: IPlotScope): IParameter
 }
 
 enum class Axis { X, Y, BOTH }
+enum class ScrollAction { SCALE, X_TRANSLATION, WIDTH_FACTOR }
 
 @Composable
 fun PlotParameter(
@@ -56,8 +56,6 @@ fun PlotParameter(
     gridStrokeWidth: IPlotScope.() -> Float = { 1f / scale.value },
     plotYTicks: IPlotParameterScope.(List<SeriesItem<*>>) -> List<Pair<Number, String>> = { defaultYTicks(it) },
     plotXTicks: IPlotParameterScope.(List<SeriesItem<*>>) -> List<Pair<Number, String>> = { defaultXTicks(it) },
-    plotYLabelWidth: IPlotScope.() -> Dp = { 50.dp },
-    plotXLabelHeight: IPlotScope.() -> Dp = { 20.dp },
     plotYLabelFontSize: IPlotScope.() -> Float = { 24f },
     plotTickLength: IPlotScope.() -> Dp = { 10.dp },
     plotTickWidth: IPlotScope.() -> Float = { 1f },
@@ -69,7 +67,8 @@ fun PlotParameter(
     drawChartBorder: Boolean = true,
     enableScale: Boolean = true,
     enableTranslation: Boolean = true,
-    focusAxis: Axis = Axis.BOTH
+    focusAxis: Axis = Axis.BOTH,
+    scrollAction: ScrollAction = ScrollAction.SCALE
 ) = object : IParameter {
 
     private lateinit var plotScope: IPlotScope
@@ -88,8 +87,6 @@ fun PlotParameter(
     override fun IPlotParameterScope.plotXTicks(items: List<SeriesItem<*>>): List<Pair<Number, String>> =
         plotXTicks(items)
 
-    override val plotYLabelWidth: Dp get() = plotYLabelWidth(plotScope)
-    override val plotXLabelHeight: Dp get() = plotXLabelHeight(plotScope)
     override val plotLabelFontSize: Float get() = plotYLabelFontSize(plotScope)
     override val plotTickLength: Dp get() = plotTickLength(plotScope)
     override val plotTickWidth: Float get() = plotTickWidth(plotScope)
@@ -105,6 +102,7 @@ fun PlotParameter(
     override val enableTranslation: Boolean = enableTranslation
 
     override val focusAxis: Axis = focusAxis
+    override val scrollAction: ScrollAction = scrollAction
 
     override fun withPlotScope(plotScope: IPlotScope): IParameter {
         this.plotScope = plotScope
@@ -130,24 +128,24 @@ fun IPlotParameterScope.defaultYTicks(items: List<SeriesItem<*>>): List<Pair<Num
     if (tickHeight.isInfinite() || tickHeight.isNaN()) return emptyList()
 
     val scaledTickHeight = tickHeight.toBigDecimal().round(MathContext(1, RoundingMode.HALF_UP)).toFloat()
-    return (0..(vHeight / scaledTickHeight).toInt().plus(10) step 1)
+    return (-10..(vHeight / scaledTickHeight).toInt().plus(10) step 1)
         .map { vRange.start - vRange.start % scaledTickHeight + it * scaledTickHeight }
         .map { it to format(it) }
 }
 
-private val decimalFormat = DecimalFormat("##,###.#####")
+private val decimalFormat = DecimalFormat("##,###.###")
 private fun format(value: Number): String = decimalFormat.format(value.toDouble())
 
 fun IPlotScope.defaultXTicks(items: List<SeriesItem<*>>): List<Pair<Number, String>> {
     if (items.isEmpty()) return emptyList()
     val vRange = items.minOf { it.x.toLong() }..items.maxOf { it.x.toLong() }
     val vWidth = vRange.run { endInclusive - start }
-    val tickWidth = vWidth / 10 / scale.value
+    val tickWidth = vWidth / 5 / scale.value
     if (tickWidth.isInfinite() || tickWidth.isNaN()) return emptyList()
 
     val tickWidthBd = tickWidth.toBigDecimal()
     val scaledTickWidth = tickWidthBd.round(MathContext(1, RoundingMode.HALF_UP)).toFloat()
-    return (0..(vWidth / scaledTickWidth).toInt() step 1)
+    return (-10..(vWidth / scaledTickWidth).toInt().plus(10) step 1)
         .map { vRange.first - vRange.first % scaledTickWidth + it * scaledTickWidth }
         .map { it to format(it) }
 }

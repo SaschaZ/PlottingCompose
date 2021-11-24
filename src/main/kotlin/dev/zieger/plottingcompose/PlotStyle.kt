@@ -1,6 +1,5 @@
 package dev.zieger.plottingcompose
 
-import androidx.compose.material.MaterialTheme
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -10,8 +9,9 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
@@ -24,9 +24,11 @@ abstract class PlotStyle<T> {
     open val z: List<Int> = listOf(0)
 
     abstract fun IPlotDrawScope.draw(
+        series: Series<T>,
         item: T,
         offset: Offset,
         previousOffset: Offset?,
+        plotRect: DpRect,
         isFocused: Boolean,
         z: Int,
         map: Offset.() -> Offset
@@ -38,14 +40,15 @@ val PlotStyle<*>.zMax get() = z.maxOf { it }
 
 class EmtpyPlotStyle<T> : PlotStyle<T>() {
     override fun IPlotDrawScope.draw(
+        series: Series<T>,
         item: T,
         offset: Offset,
         previousOffset: Offset?,
+        plotRect: DpRect,
         isFocused: Boolean,
         z: Int,
         map: Offset.() -> Offset
     ) {
-
     }
 }
 
@@ -55,14 +58,16 @@ class Group<T>(vararg styles: PlotStyle<T>) : PlotStyle<T>() {
     override val z: List<Int> = styles.flatMap { it.z }.distinct()
 
     override fun IPlotDrawScope.draw(
+        series: Series<T>,
         item: T,
         offset: Offset,
         previousOffset: Offset?,
+        plotRect: DpRect,
         isFocused: Boolean,
         z: Int,
         map: Offset.() -> Offset
     ) {
-        styles.forEach { it.run { draw(item, offset, previousOffset, isFocused, z, map) } }
+        styles.map { it.run { draw(series, item, offset, previousOffset, plotRect, isFocused, z, map) } }
     }
 }
 
@@ -71,9 +76,11 @@ data class Dot<T>(
     val width: Float = 2f
 ) : PlotStyle<T>() {
     override fun IPlotDrawScope.draw(
+        series: Series<T>,
         item: T,
         offset: Offset,
         previousOffset: Offset?,
+        plotRect: DpRect,
         isFocused: Boolean,
         z: Int,
         map: Offset.() -> Offset
@@ -90,16 +97,40 @@ data class Focusable<T>(
     override val z: List<Int> = (unfocused.z + focused.z).distinct()
 
     override fun IPlotDrawScope.draw(
+        series: Series<T>,
         item: T,
         offset: Offset,
         previousOffset: Offset?,
+        plotRect: DpRect,
         isFocused: Boolean,
         z: Int,
         map: Offset.() -> Offset
     ) {
         when {
-            isFocused && z in focused.z -> focused.run { draw(item, offset, previousOffset, isFocused, z, map) }
-            !isFocused && z in unfocused.z -> unfocused.run { draw(item, offset, previousOffset, isFocused, z, map) }
+            isFocused && z in focused.z -> focused.run {
+                draw(
+                    series,
+                    item,
+                    offset,
+                    previousOffset,
+                    plotRect,
+                    isFocused,
+                    z,
+                    map
+                )
+            }
+            !isFocused && z in unfocused.z -> unfocused.run {
+                draw(
+                    series,
+                    item,
+                    offset,
+                    previousOffset,
+                    plotRect,
+                    isFocused,
+                    z,
+                    map
+                )
+            }
         }
     }
 }
@@ -109,9 +140,11 @@ data class Line<T>(
     val width: Float = 1f
 ) : PlotStyle<T>() {
     override fun IPlotDrawScope.draw(
+        series: Series<T>,
         item: T,
         offset: Offset,
         previousOffset: Offset?,
+        plotRect: DpRect,
         isFocused: Boolean,
         z: Int,
         map: Offset.() -> Offset
@@ -154,27 +187,24 @@ data class CandleSticks(
     private val lineWidth: Float = 1f
 ) : PlotStyle<Ohcl>() {
     override fun IPlotDrawScope.draw(
+        series: Series<Ohcl>,
         item: Ohcl,
         offset: Offset,
         previousOffset: Offset?,
+        plotRect: DpRect,
         isFocused: Boolean,
         z: Int,
         map: Offset.() -> Offset
     ) {
-        val plotWidth =
-            plotSize.value.width.dp - horizontalPadding * 2 - horizontalPlotPadding * 2 - plotYLabelWidth.value.dp
-        val plotHeight =
-            plotSize.value.height.dp - verticalPadding * 2 - verticalPlotPadding * 2 - plotXLabelHeight.value.dp
+        val plotWidth = plotRect.width * widthFactor.value
+        val plotHeight = plotRect.height
 
-        val items = allSeries.flatMap { it.items }
-        val valueXRange = items.minOf { it.x.toFloat() }..items.maxOf { it.x.toFloat() }
-        val valueYRange = items.minOf { it.yMin.toFloat() }..items.maxOf { it.yMax.toFloat() }
+        val wF = plotWidth.value / series.xWidth
+        val hF = plotHeight.value / series.yHeight
 
-        val widthFactor = plotWidth.value / valueXRange.run { endInclusive - start }
-        val heightFactor = plotHeight.value / valueYRange.run { endInclusive - start }
-
-        val bodySize = Offset(50f * widthFactor, (item.open - item.close).absoluteValue * heightFactor).toSize()
-        val topLeft = Offset(item.time - bodySize.width / 2, max(item.open, item.close)).map()
+        val bodySize = Offset(50f * wF, (item.open - item.close).absoluteValue * hF).toSize()
+        val topLeft =
+            Offset((item.time - bodySize.width / 2) * this@draw.widthFactor.value, max(item.open, item.close)).map()
 
         drawRect(
             if (item.open <= item.close) positiveColor else negativeColor,
@@ -194,7 +224,7 @@ data class CandleSticks(
         drawLine(
             lineColor,
             topMid,
-            topMid.copy(y = topMid.y - (item.high - max(item.close, item.open)) * heightFactor),
+            topMid.copy(y = topMid.y - (item.high - max(item.close, item.open)) * hF),
             lineWidth / scale.value, alpha = lineColor.alpha
         )
         val bottomMid = topLeft.copy(
@@ -204,7 +234,7 @@ data class CandleSticks(
         drawLine(
             lineColor,
             bottomMid,
-            bottomMid.copy(y = bottomMid.y + (min(item.open, item.close) - item.low) * heightFactor),
+            bottomMid.copy(y = bottomMid.y + (min(item.open, item.close) - item.low) * hF),
             lineWidth / scale.value, alpha = lineColor.alpha
         )
     }
@@ -225,9 +255,11 @@ data class Label<T>(
     override val z: List<Int> = listOf(1)
 
     override fun IPlotDrawScope.draw(
+        series: Series<T>,
         item: T,
         offset: Offset,
         previousOffset: Offset?,
+        plotRect: DpRect,
         isFocused: Boolean,
         z: Int,
         map: Offset.() -> Offset
@@ -239,15 +271,15 @@ data class Label<T>(
         val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value
 
         val position = mousePosition.value ?: offset
-        val widthRange = horizontalPadding.value + horizontalPlotPadding.value..
-                plotSize.value.width - horizontalPlotPadding.value - horizontalPadding.value - plotYLabelWidth.value
-        val widthLength = widthRange.run { endInclusive - start }
-        val heightRange = verticalPadding.value + verticalPlotPadding.value..
-                plotSize.value.height - verticalPlotPadding.value - verticalPadding.value
-        val heightLength = heightRange.run { endInclusive - start }
+//        val widthRange = horizontalPadding.value + horizontalPlotPadding.value..
+//                plotSize.value.width - horizontalPlotPadding.value - horizontalPadding.value - plotYLabelWidth.value
+//        val widthLength = widthRange.run { endInclusive - start }
+//        val heightRange = verticalPadding.value + verticalPlotPadding.value..
+//                plotSize.value.height - verticalPlotPadding.value - verticalPadding.value
+//        val heightLength = heightRange.run { endInclusive - start }
 
         val (startTop, size) = when {
-            position.x < widthRange.start + widthLength * 0.5f -> Offset(
+            position.x < plotRect.left.value + plotRect.width.value * 0.5f -> Offset(
                 position.x - padding,
                 position.y - padding
             )
@@ -257,7 +289,7 @@ data class Label<T>(
             )
         }.let {
             when {
-                position.y > heightRange.endInclusive - heightLength * 0.5f ->
+                position.y > plotRect.bottom.value - plotRect.height.value * 0.5f ->
                     it.copy(y = it.y - labelHeight * scale.value * 2.05f)
                 else ->
                     it.copy(y = it.y + labelHeight * scale.value * 1.2f)
@@ -266,10 +298,18 @@ data class Label<T>(
             mappedOffset(it)
         } to Size(labelWidth + padding * 2 / scale.value, labelHeight + padding * 2 / scale.value)
 
-        drawRoundRect(backgroundColor, startTop, size, CornerRadius(borderRoundCorner / scale.value, borderRoundCorner / scale.value),
-            Fill, backgroundColor.alpha)
-        drawRoundRect(borderColor, startTop, size, CornerRadius(borderRoundCorner / scale.value, borderRoundCorner / scale.value),
-            Stroke(borderWidth / scale.value), borderColor.alpha)
+        drawRoundRect(
+            backgroundColor,
+            startTop,
+            size,
+            CornerRadius(borderRoundCorner / scale.value, borderRoundCorner / scale.value),
+            Fill,
+            backgroundColor.alpha
+        )
+        drawRoundRect(
+            borderColor, startTop, size, CornerRadius(borderRoundCorner / scale.value, borderRoundCorner / scale.value),
+            Stroke(borderWidth / scale.value), borderColor.alpha
+        )
         lines.forEachIndexed { idx, line ->
             val scale = this@draw.scale.value
             val off = startTop.copy(

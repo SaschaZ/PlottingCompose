@@ -15,6 +15,9 @@ interface IPlotScope {
     val scale: MutableState<Float>
     val scaleCenter: MutableState<Offset>
     val mousePosition: MutableState<Offset?>
+    val widthFactor: MutableState<Float>
+    val widthFactorCenter: MutableState<Offset>
+    val heightFactor: MutableState<Float>
 
     val finalTranslation: Offset
         get() = translation.value + translationOffset.value
@@ -28,4 +31,7 @@ fun PlotScope() = object : IPlotScope {
     override val scale: MutableState<Float> = remember { mutableStateOf(1f) }
     override val scaleCenter: MutableState<Offset> = remember { mutableStateOf(Offset.Zero) }
     override val mousePosition: MutableState<Offset?> = remember { mutableStateOf(null) }
+    override val widthFactor: MutableState<Float> = remember { mutableStateOf(1f) }
+    override val widthFactorCenter: MutableState<Offset> = remember { mutableStateOf(Offset.Zero) }
+    override val heightFactor: MutableState<Float> = remember { mutableStateOf(1f) }
 }

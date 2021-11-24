@@ -3,6 +3,7 @@ package dev.zieger.plottingcompose
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.DpRect
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 import kotlin.math.absoluteValue
 import kotlin.math.min
@@ -12,7 +13,16 @@ data class Series<T>(
     val preDrawer: List<PlotDrawer<T>> = emptyList(),
     val postDrawer: List<PlotDrawer<T>> = emptyList()
 ) {
+    val xRange = items.minOf { it.x.toFloat() }..items.maxOf { it.x.toFloat() }
+    val xWidth = xRange.run { endInclusive - start }
+    val yRange = items.minOf { it.y.min.toFloat() }..items.maxOf { it.y.max.toFloat() }
+    val yHeight = yRange.run { endInclusive - start }
+
     val z: List<Int> = items.flatMap { it.z }.distinct()
+
+    init {
+        items.forEach { it.parent = this }
+    }
 
     fun IPlotDrawScope.preDrawerDraw(offsets: Map<SeriesItem<*>, Offset>) {
         preDrawer.forEach { it.run { draw(offsets.map { m -> m.key as SeriesItem<T> to m.value }.toMap()) } }
@@ -22,6 +32,11 @@ data class Series<T>(
         postDrawer.forEach { it.run { draw(offsets.map { m -> m.key as SeriesItem<T> to m.value }.toMap()) } }
     }
 }
+
+val List<Series<*>>.xRange get() = minOf { it.xRange.start }..maxOf { it.xRange.endInclusive }
+val List<Series<*>>.xWidth get() = xRange.run { endInclusive - start }
+val List<Series<*>>.yRange get() = minOf { it.yRange.start }..maxOf { it.yRange.endInclusive }
+val List<Series<*>>.yHeight get() = yRange.run { endInclusive - start }
 
 fun <T> List<SeriesItem<T>>.toSeries() = Series(this)
 
@@ -46,13 +61,15 @@ sealed class SeriesYValue {
 }
 
 open class SeriesItem<T>(
-    private val data: T,
+    val data: T,
     val x: Number,
     val y: SeriesYValue,
     vararg style: PlotStyle<T> = arrayOf(Focusable(Dot(), Dot(width = 50f)), Line())
 ) {
     constructor(data: T, x: Number, y: Number, vararg style: PlotStyle<T>) :
             this(data, x, SeriesYValue.Single(y), *style)
+
+    lateinit var parent: Series<T>
 
     open val yMin: Number = y.min
     open val yMax: Number = y.max
@@ -63,16 +80,23 @@ open class SeriesItem<T>(
 
     val z: List<Int> = styles.flatMap { it.z }.distinct()
 
-    fun IPlotDrawScope.draw(offset: Offset, previousOffset: Offset?, z: Int, map: Offset.() -> Offset) =
-        styles.filter { z in it.z }.forEach { style ->
-            style.run { draw(data, offset, previousOffset, isFocused.value, z, map) }
+    fun IPlotDrawScope.draw(
+        offset: Offset,
+        previousOffset: Offset?,
+        z: Int,
+        plotRect: DpRect,
+        map: Offset.() -> Offset
+    ) {
+        styles.filter { z in it.z }.map { style ->
+            style.run { draw(parent, data, offset, previousOffset, plotRect, isFocused.value, z, map) }
         }
+    }
 }
 
 class OhclItem(
     ohcl: Ohcl,
     vararg styles: PlotStyle<Ohcl> = arrayOf(CandleSticks())
-) : SeriesItem<Ohcl>(ohcl, ohcl.time, ohcl.mid, *styles) {
+) : SeriesItem<Ohcl>(ohcl, ohcl.time, SeriesYValue.Range(ohcl.low..ohcl.high), *styles) {
     constructor(
         time: Long,
         open: Float,
