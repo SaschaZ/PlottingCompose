@@ -216,8 +216,6 @@ private fun IPlotDrawScope.drawPlot(
     return offsets
 }
 
-enum class Axis { X, Y, BOTH }
-
 private fun IPlotDrawScope.applyFocusedFlag(axis: Axis, offsets: Map<SeriesItem<*>, Offset>) {
     offsets.entries.sortedBy { (_, offset) ->
         distanceToMouse(axis, offset)
@@ -345,14 +343,13 @@ private fun IPlotDrawScope.drawYAxis() {
 
     val left = 0f
     val right = plotSize.value.width.toFloat()
-    val bottom = plotSize.value.height - top - plotXLabelHeight.value
+    val bottom = plotSize.value.height - verticalPadding.value - plotXLabelHeight.value
     if (left > right || top > bottom) return
 
     clipRect(
-        left, top, right,
-        bottom
+        left, top, right, bottom
     ) {
-        translate(left, this@drawYAxis.finalTranslation.y) {
+        translate(0f, this@drawYAxis.finalTranslation.y) {
             scale(
                 1f,
                 this@drawYAxis.scale.value,
@@ -367,22 +364,28 @@ private fun IPlotDrawScope.drawYAxis() {
 
                         if (drawYTicks)
                             drawLine(
-                                grid,
+                                axisTicks,
                                 Offset((x - plotTickLength.value / 2), yScene),
                                 Offset((x + plotTickLength.value / 2), yScene)
                             )
 
-                        if (drawYLabels)
-                            drawText(
-                                str,
-                                Offset(
-                                    (x + plotTickLength.value),
-                                    yScene + plotLabelFontSize / 3 / scale.value
-                                ),
-                                plotLabelFontSize / scale.value,
-                                axisLabels,
-                                scale.value
+                        if (drawYLabels) {
+                            val offset = Offset(
+                                (x + plotTickLength.value),
+                                yScene + plotLabelFontSize / 3 / scale.value
                             )
+                            scale(1 / scale.value, 1 / scale.value, offset) {
+                                this@drawYAxis.run {
+                                    drawText(
+                                        str,
+                                        offset,
+                                        plotLabelFontSize,
+                                        axisLabels,
+                                        scale.value
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -407,7 +410,7 @@ private fun IPlotDrawScope.drawXAxis() {
         right,
         bottom
     ) {
-        translate(this@drawXAxis.finalTranslation.x, top) {
+        translate(this@drawXAxis.finalTranslation.x, 0f) {
             scale(
                 this@drawXAxis.scale.value,
                 1f,
@@ -425,17 +428,23 @@ private fun IPlotDrawScope.drawXAxis() {
                             Offset(xScene, y + this@drawXAxis.plotTickLength.value / 2f)
                         )
 
-                    if (this@drawXAxis.drawXLabels)
-                        drawText(
-                            str,
-                            Offset(
-                                xScene - (this@drawXAxis.plotLabelFontSize * str.length * 0.25f) / this@drawXAxis.scale.value,
-                                (y + this@drawXAxis.plotTickLength.value + this@drawXAxis.plotLabelFontSize)
-                            ),
-                            this@drawXAxis.plotLabelFontSize,
-                            this@drawXAxis.axisLabels,
-                            1 / this@drawXAxis.scale.value
+                    if (this@drawXAxis.drawXLabels) {
+                        val offset = Offset(
+                            xScene - (this@drawXAxis.plotLabelFontSize * str.length * 0.25f) / this@drawXAxis.scale.value,
+                            (y + this@drawXAxis.plotTickLength.value + this@drawXAxis.plotLabelFontSize)
                         )
+                        scale(1 / this@drawXAxis.scale.value, 1f, offset) {
+                            this@drawXAxis.run {
+                                drawText(
+                                    str,
+                                    offset,
+                                    plotLabelFontSize,
+                                    axisLabels,
+                                    1f
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

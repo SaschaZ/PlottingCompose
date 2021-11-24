@@ -33,7 +33,7 @@ fun main() = application {
         val values = remember {
             Series((-100..100).map {
                 SeriesItem(
-                    Unit, it, -it.toDouble().pow(2) / 1000000000,
+                    Unit, it, -it.toDouble().pow(2) / 1,
                     Focusable(
                         Dot(Color.Black.copy(alpha = 0.5f)),
                         Dot(Color.Black.copy(alpha = 0.5f), width = 50f)
@@ -45,7 +45,7 @@ fun main() = application {
         val values2 = remember {
             Series((-100..100).map {
                 SeriesItem(
-                    Unit, it, it.toDouble().pow(2) / 1000000000,
+                    Unit, it, it.toDouble().pow(2) / 1,
                     Focusable(
                         Dot(Color.Black.copy(alpha = 0.5f)),
                         Dot(Color.Black.copy(alpha = 0.5f), width = 50f)

@@ -44,6 +44,8 @@ interface IParameter {
     fun withPlotScope(plotScope: IPlotScope): IParameter
 }
 
+enum class Axis { X, Y, BOTH }
+
 @Composable
 fun PlotParameter(
     horizontalPadding: IPlotScope.() -> Dp = { min(plotSize.value.width, plotSize.value.height).dp * 0.05f },
@@ -115,12 +117,9 @@ fun IPlotParameterScope.defaultGridSize(items: List<SeriesItem<*>>): Dp {
     val vHeight = items.maxOf { it.yMax.toFloat() } - items.minOf { it.yMin.toFloat() }
     val hHeight = plotSize.value.height - verticalPadding.value * 2 - verticalPlotPadding.value * 2
     val heightFactor = vHeight / hHeight
-    val tickHeight = vHeight / 10
+    val tickHeight = vHeight / 10f
     if (tickHeight.isNaN() || tickHeight.isInfinite()) return 50.dp
-
-    val tickHeightBd = tickHeight.toBigDecimal()
-    val scaledTickHeight = tickHeightBd.round(MathContext(1, RoundingMode.HALF_UP)).toInt()
-    return (scaledTickHeight / heightFactor).dp
+    return (tickHeight / heightFactor).dp
 }
 
 fun IPlotParameterScope.defaultYTicks(items: List<SeriesItem<*>>): List<Pair<Number, String>> {
@@ -128,7 +127,7 @@ fun IPlotParameterScope.defaultYTicks(items: List<SeriesItem<*>>): List<Pair<Num
     val vRange = items.minOf { it.yMin.toFloat() }..items.maxOf { it.yMax.toFloat() }
     val vHeight = vRange.run { endInclusive - start }
     val tickHeight = vHeight / 10 / scale.value
-     if (tickHeight.isInfinite() || tickHeight.isNaN()) return emptyList()
+    if (tickHeight.isInfinite() || tickHeight.isNaN()) return emptyList()
 
     val scaledTickHeight = tickHeight.toBigDecimal().round(MathContext(1, RoundingMode.HALF_UP)).toFloat()
     return (0..(vHeight / scaledTickHeight).toInt().plus(10) step 1)
@@ -136,8 +135,8 @@ fun IPlotParameterScope.defaultYTicks(items: List<SeriesItem<*>>): List<Pair<Num
         .map { it to format(it) }
 }
 
-private val decimalFormat = DecimalFormat("##,###")
-private fun format(value: Number): String = decimalFormat.format(value.toLong())
+private val decimalFormat = DecimalFormat("##,###.#####")
+private fun format(value: Number): String = decimalFormat.format(value.toDouble())
 
 fun IPlotScope.defaultXTicks(items: List<SeriesItem<*>>): List<Pair<Number, String>> {
     if (items.isEmpty()) return emptyList()
