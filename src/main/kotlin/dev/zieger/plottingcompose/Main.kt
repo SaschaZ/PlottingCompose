@@ -12,7 +12,6 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import java.lang.Float.max
 import java.lang.Float.min
-import kotlin.math.pow
 import kotlin.random.Random
 
 fun main() = application {
@@ -30,44 +29,42 @@ fun main() = application {
         val candles = remember {
             var lastClose: Float? = null
             Series((0..100).map {
-                OhclItem(randomOhcl(it.toLong(), lastClose).also { c -> lastClose = c.close },
-                    Focusable(CandleSticks(), CandleSticks(Color.Yellow, Color.Blue)),
-                    Focusable(EmtpyPlotStyle(), Label { i -> "${i.time}\n${i.close}" })
-                )
-            })
+                OhclItem(randomOhcl(it.toLong(), lastClose).also { c -> lastClose = c.close })
+            }, CandleSticks(),
+                Label { i -> "${i.time}\n${i.close}" })
         }
         val sma = remember {
-            val closes = candles.items.map { it.x to it.data.close }
-            closes.mapIndexed { idx, (x, _) ->
-                x to closes.subList((idx - 24).coerceAtLeast(0), idx)
-                    .map { it.second }.average()
-            }
-                .map { (x, sma) -> if (sma.isNaN() || sma.isInfinite()) x to 0f else x to sma }
-                .map { (x, sma) -> SeriesItem(sma, x, sma, Line(Color.Magenta, 2f)) }
-                .toSeries()
+            val closes = candles.items.map { it.data.time to it.data.close }
+            Series(
+                closes.mapIndexed { idx, (x, _) ->
+                    x to closes.subList((idx - 24).coerceAtLeast(0), idx)
+                        .map { it.second }.average()
+                }.map { (x, sma) -> if (sma.isNaN() || sma.isInfinite()) x to 0f else x to sma }
+                    .map { (x, sma) -> SeriesItem(x, sma) }, Line(Color.Magenta, 2f)
+            )
         }
-        val values = remember {
-            Series((-100..100).map {
-                SeriesItem(
-                    Unit, it, -it.toDouble().pow(2) / 1,
-                    Focusable(
-                        Dot(Color.Black.copy(alpha = 0.5f)),
-                        Dot(Color.Black.copy(alpha = 0.5f), width = 50f)
-                    ), Line()
-                )
-            }).withPreDrawer(Filled(Color.Magenta.copy(alpha = 0.5f)))
-        }
-        val values2 = remember {
-            Series((-100..100).map {
-                SeriesItem(
-                    Unit, it, it.toDouble().pow(2) / 1,
-                    Focusable(
-                        Dot(Color.Black.copy(alpha = 0.5f)),
-                        Dot(Color.Black.copy(alpha = 0.5f), width = 50f)
-                    ), Line()
-                )
-            }).withPreDrawer(Filled(Color.Cyan.copy(alpha = 0.5f), upWards = true))
-        }
+//        val values = remember {
+//            Series((-100..100).map {
+//                SeriesItem(
+//                    Unit, it, -it.toDouble().pow(2) / 1,
+//                    Focusable(
+//                        Dot(Color.Black.copy(alpha = 0.5f)),
+//                        Dot(Color.Black.copy(alpha = 0.5f), width = 50f)
+//                    ), Line()
+//                )
+//            }).withPreDrawer(Filled(Color.Magenta.copy(alpha = 0.5f)))
+//        }
+//        val values2 = remember {
+//            Series((-100..100).map {
+//                SeriesItem(
+//                    Unit, it, it.toDouble().pow(2) / 1,
+//                    Focusable(
+//                        Dot(Color.Black.copy(alpha = 0.5f)),
+//                        Dot(Color.Black.copy(alpha = 0.5f), width = 50f)
+//                    ), Line()
+//                )
+//            }).withPreDrawer(Filled(Color.Cyan.copy(alpha = 0.5f), upWards = true))
+//        }
 
         val ctrlPressed: MutableState<Boolean> = remember { mutableStateOf(false) }
         val shiftPressed: MutableState<Boolean> = remember { mutableStateOf(false) }
@@ -80,11 +77,15 @@ fun main() = application {
         }) {
             Plot(
                 parameter = PlotParameter(
-                    focusAxis = Axis.X, scrollAction = when {
+                    focusAxis = Axis.X,
+                    scrollAction = when {
                         ctrlPressed.value && !shiftPressed.value && !altPressed.value -> ScrollAction.WIDTH_FACTOR
                         !ctrlPressed.value && shiftPressed.value && !altPressed.value -> ScrollAction.X_TRANSLATION
                         else -> ScrollAction.SCALE
-                    }
+                    },
+//                    verticalPadding = { 0.dp }, verticalPlotPadding = { 0.dp },
+//                    horizontalPadding = { 0.dp }, horizontalPlotPadding = { 0.dp },
+//                    drawYLabels = false, drawXLabels = false
                 )
             ) {
 //                plot(0.5f) {

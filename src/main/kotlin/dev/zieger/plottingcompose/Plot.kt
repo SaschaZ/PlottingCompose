@@ -10,12 +10,10 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.mouse.MouseScrollOrientation
 import androidx.compose.ui.input.mouse.MouseScrollUnit
 import androidx.compose.ui.input.mouse.mouseScrollFilter
@@ -23,7 +21,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerMoveFilter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import dev.zieger.plottingcompose.scopes.*
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
@@ -146,7 +146,6 @@ fun IPlotParameterScope.applyTranslationOffset(allSeries: SnapshotStateList<Seri
     if (xTicks.isEmpty()) return
     val xHeight = xTicks.maxOf { TextLine.make(it.second, font).height }
 
-
     val plotWidth =
         plotSize.value.width - horizontalPadding.value * 2 - horizontalPlotPadding.value * 2 - yWidth
     val plotHeight =
@@ -163,48 +162,103 @@ fun IntSize.toFloat(): Size = Size(width.toFloat(), height.toFloat())
 private fun IPlotDrawScope.draw() {
     if (allSeries.isEmpty()) return
 
-    val yTicks = plotYTicks(allItems)
-    if (yTicks.isEmpty()) return
-    val font = Font(null, plotLabelFontSize)
-    val yWidth = yTicks.maxOf { TextLine.make(it.second, font).width }
-    val xTicks = plotXTicks(allItems)
-    if (xTicks.isEmpty()) return
-    val xHeight = xTicks.maxOf { TextLine.make(it.second, font).height }
+    val rect = PlotRect(this)
 
-    drawPlotBackground(yWidth, xHeight)
-    if (drawGrid) drawGrid(yWidth, xHeight)
+    drawPlotBackground(rect)
+    if (drawGrid) drawGrid(rect)
 
-    val offsets = allSeries.flatMap { drawPlot(it, yWidth, xHeight)?.entries ?: emptyList() }
-        .associate { it.key to it.value }
+    drawPlot(allSeries, rect)
 
-    if (drawChartBorder) drawPlotBorder(yWidth, xHeight)
-    applyFocusedFlag(focusAxis, offsets)
+    if (drawChartBorder) drawPlotBorder(rect)
+    applyFocusedFlag(focusAxis, rect)
 
-    drawAxis(yTicks, yWidth, xTicks, xHeight)
+    drawAxis(rect)
+}
+
+data class PlotRect(
+    val main: Rect,
+    val plot: Rect,
+    val yLabel: Rect,
+    val xLabel: Rect,
+    val widthFactor: Float,
+    val heightFactor: Float,
+    val yTicks: List<Pair<Number, String>>,
+    val xTicks: List<Pair<Number, String>>
+) {
+    companion object {
+
+        operator fun invoke(scope: IPlotDrawScope): PlotRect {
+            val yTicks = scope.run { plotYTicks(scope.allItems) }
+            val xTicks = scope.run { plotXTicks(scope.allItems) }
+            val yLabelWidth = if (scope.drawYLabels) yTicks.yLabelWidth(scope) else 0.dp
+            val xLabelHeight = if (scope.drawXLabels) xTicks.xLabelHeight(scope) else 0.dp
+            val plotSize = scope.plotSize.value
+
+            val main = scope.run {
+                Rect(
+                    horizontalPadding.value,
+                    verticalPadding.value,
+                    plotSize.width - horizontalPadding.value - yLabelWidth.value - plotTickLength.value,
+                    plotSize.height - verticalPadding.value - xLabelHeight.value - plotTickLength.value
+                )
+            }
+            val plot = scope.run {
+                Rect(
+                    main.left + horizontalPlotPadding.value,
+                    main.top + verticalPlotPadding.value,
+                    main.right - horizontalPlotPadding.value,
+                    main.bottom - verticalPlotPadding.value
+                )
+            }
+            val yLabel = scope.run {
+                Rect(
+                    main.right - plotTickLength.value / 2,
+                    main.top,
+                    plotSize.width - horizontalPadding.value,
+                    main.bottom
+                )
+            }
+            val xLabel = scope.run {
+                Rect(
+                    main.left,
+                    main.bottom - plotTickLength.value / 2,
+                    main.right,
+                    plotSize.height - verticalPadding.value
+                )
+            }
+
+            return PlotRect(
+                main, plot, yLabel, xLabel,
+                plot.width / scope.allSeries.xWidth,
+                plot.height / scope.allSeries.yHeight,
+                yTicks, xTicks
+            )
+        }
+
+        private fun List<Pair<Number, String>>.yLabelWidth(scope: IPlotDrawScope): Dp {
+            val font = Font(null, scope.plotLabelFontSize)
+            return maxOf { TextLine.make(it.second, font).width }.dp
+        }
+
+        private fun List<Pair<Number, String>>.xLabelHeight(scope: IPlotDrawScope): Dp {
+            val font = Font(null, scope.plotLabelFontSize)
+            return maxOf { TextLine.make(it.second, font).height }.dp
+        }
+    }
+
+    fun map(offset: Offset): Offset = Offset(
+        plot.left + widthFactor * offset.x,
+        plot.bottom - heightFactor * offset.y
+    )
+
+    fun <T : PlotItem> offsets(items: List<SeriesItem<T>>) =
+        items.associateWith { item -> map(Offset(item.data.x, item.data.y)) }
 }
 
 private fun IPlotDrawScope.drawPlot(
-    series: Series<*>,
-    yWidth: Float, xHeight: Float
-): Map<SeriesItem<*>, Offset>? {
-    val plotRect = DpRect(
-        horizontalPadding + horizontalPlotPadding,
-        verticalPadding + verticalPlotPadding,
-        plotSize.value.width.dp - horizontalPadding - horizontalPlotPadding - yWidth.dp,
-        plotSize.value.height.dp - verticalPadding - verticalPlotPadding - xHeight.dp
-    )
-
-    val widthFactor = plotRect.width / allSeries.xWidth
-    val heightFactor = plotRect.height / allSeries.yHeight
-
-    var offsets: Map<SeriesItem<*>, Offset> = emptyMap()
-    val start = horizontalPadding.value
-    val top = verticalPadding.value
-    val end = plotSize.value.width.toFloat() - horizontalPadding.value - yWidth
-    val bottom = plotSize.value.height.toFloat() - verticalPadding.value - xHeight
-    if (start > end || top > bottom) return null
-
-    clipRect(start, top, end, bottom) {
+    allSeries: List<Series<*>>, rect: PlotRect
+) {
+    clipRect(rect.main) {
         translate(
             this@drawPlot.finalTranslation.x,// - (this@drawPlot.widthFactorCenter.value.x - this@drawPlot.horizontalPadding.value * 1.3f) * this@drawPlot.widthFactor.value + (this@drawPlot.widthFactorCenter.value.x - this@drawPlot.horizontalPadding.value * 1.5f),
             this@drawPlot.finalTranslation.y
@@ -214,47 +268,28 @@ private fun IPlotDrawScope.drawPlot(
                 this@drawPlot.scaleCenter.value - this@drawPlot.translationOffset.value
             ) {
                 this@drawPlot.run {
-                    val map: Offset.() -> Offset = {
-                        Offset(
-                            (horizontalPadding + horizontalPlotPadding + widthFactor * x).toPx(),
-                            (verticalPadding + verticalPlotPadding + plotRect.height - heightFactor * y).toPx()
-                        )
-                    }
-                    offsets = series.items.associateWith { item ->
-                        Offset(item.x.toFloat(), item.y.value.toFloat()).map()
-                    }
-
-                    series.run { preDrawerDraw(offsets) }
-
-                    series.z.sorted().flatMap { z ->
-                        series.items.mapIndexed { idx, item ->
-                            item.run {
-                                draw(
-                                    offsets[item]!!,
-                                    offsets.values.toList().getOrNull(idx - 1),
-                                    z,
-                                    plotRect,
-                                    map
-                                )
-                            }
+                    allSeries.flatMap { i -> i.styles.map { s -> Triple(i.items, s, s.z) } }
+                        .sortedBy { it.third }
+                        .forEach { (items, style, z) ->
+                            style.run { draw(items.map { it.data }, rect) }
                         }
-                    }
-
-                    series.run { postDrawerDraw(offsets) }
                 }
             }
         }
     }
-    return offsets
 }
 
-private fun IPlotDrawScope.applyFocusedFlag(axis: Axis, offsets: Map<SeriesItem<*>, Offset>) {
-    offsets.entries.sortedBy { (_, offset) ->
-        distanceToMouse(axis, offset)
-    }.forEachIndexed { idx, entry ->
-        entry.key.isFocused.value = idx == 0 &&
-                distanceToMouse(axis, entry.value) < 100f
-    }
+fun IPlotDrawScope.clipRect(rect: Rect, block: DrawScope.() -> Unit) {
+    clipRect(rect.left, rect.top, rect.right, rect.bottom, ClipOp.Intersect, block)
+}
+
+private fun IPlotDrawScope.applyFocusedFlag(axis: Axis, rect: PlotRect) {
+    allItems.map { it to rect.map(it.data.offset) }
+        .sortedBy { (_, offset) ->
+            distanceToMouse(axis, offset)
+        }.forEachIndexed { idx, (item, offset) ->
+            item.data.hasFocus = idx == 0 && distanceToMouse(axis, offset) < 100f
+        }
 }
 
 internal fun IPlotParameterScope.mappedOffset(offset: Offset): Offset =
@@ -287,45 +322,36 @@ private operator fun Offset.div(offset: Offset): Offset = Offset(x / offset.x, y
 
 private val Offset.length: Float get() = sqrt(x * x + y * y)
 
-private fun IPlotDrawScope.drawGrid(yWidth: Float, xHeight: Float) {
-    val gridWidth = plotSize.value.width.dp - horizontalPadding * 2 - yWidth.dp
-    val gridHeight = plotSize.value.height.dp - verticalPadding * 2 - xHeight.dp
-    if (gridWidth < 0.dp || gridHeight < 0.dp) return
-
-    clipRect(
-        horizontalPadding.value,
-        verticalPadding.value,
-        horizontalPadding.value + gridWidth.toPx(),
-        verticalPadding.value + gridHeight.toPx()
-    ) {
+private fun IPlotDrawScope.drawGrid(rect: PlotRect) {
+    clipRect(rect.main) {
         translate(this@drawGrid.finalTranslation.x, this@drawGrid.finalTranslation.y) {
             scale(this@drawGrid.scale.value, this@drawGrid.scaleCenter.value - this@drawGrid.translationOffset.value) {
                 this@drawGrid.run {
                     val gridSize = gridSize(allSeries.flatMap { it.items }).toPx().coerceAtLeast(1f)
-                    val numX = (gridWidth.toPx() / gridSize).toInt()
+                    val numX = (rect.plot.width / gridSize).toInt()
                     (-numX..numX * 2).forEach { xIdx ->
                         drawLine(
                             grid,
-                            Offset(xIdx * gridSize, -gridHeight.toPx()),
+                            Offset(xIdx * gridSize, -rect.plot.height),
                             Offset(
                                 xIdx * gridSize,
-                                gridHeight.toPx() * 2
+                                rect.plot.height * 2
                             ),
                             gridStrokeWidth,
                             alpha = grid.alpha
                         )
                     }
 
-                    val numY = (gridHeight.toPx() / gridSize).toInt()
+                    val numY = (rect.plot.height / gridSize).toInt()
                     (-numY..numY * 2).forEach { yIdx ->
                         drawLine(
                             grid,
                             Offset(
-                                -gridWidth.toPx(),
+                                -rect.plot.width,
                                 verticalPadding.toPx() + verticalPlotPadding.toPx() + yIdx * gridSize
                             ),
                             Offset(
-                                gridWidth.toPx() * 2,
+                                rect.plot.width * 2,
                                 verticalPadding.toPx() + verticalPlotPadding.toPx() + yIdx * gridSize
                             ),
                             gridStrokeWidth,
@@ -338,52 +364,21 @@ private fun IPlotDrawScope.drawGrid(yWidth: Float, xHeight: Float) {
     }
 }
 
-private fun IPlotDrawScope.drawPlotBackground(yWidth: Float, xHeight: Float) {
-    val gridWidth = plotSize.value.width.dp - horizontalPadding * 2 - yWidth.dp
-    val gridHeight = plotSize.value.height.dp - verticalPadding * 2 - xHeight.dp
-    if (gridWidth < 0.dp || gridHeight < 0.dp) return
-
-    drawRect(
-        background, Offset(horizontalPadding.value, verticalPadding.value),
-        Size(gridWidth.toPx(), gridHeight.toPx()), background.alpha, Fill
-    )
+private fun IPlotDrawScope.drawPlotBackground(rect: PlotRect) {
+    drawRect(background, rect.main.topLeft, rect.main.size, background.alpha, Fill)
 }
 
-private fun IPlotDrawScope.drawPlotBorder(yWidth: Float, xHeight: Float) {
-    val gridWidth = plotSize.value.width.dp - horizontalPadding * 2 - yWidth.dp
-    val gridHeight = plotSize.value.height.dp - verticalPadding * 2 - xHeight.dp
-    if (gridWidth < 0.dp || gridHeight < 0.dp) return
-
-    drawRect(
-        border, Offset(horizontalPadding.value, verticalPadding.value),
-        Size(gridWidth.toPx(), gridHeight.toPx()), border.alpha, Stroke(1f)
-    )
+private fun IPlotDrawScope.drawPlotBorder(rect: PlotRect) {
+    drawRect(border, rect.main.topLeft, rect.main.size, border.alpha, Stroke(1f))
 }
 
-private fun IPlotDrawScope.drawAxis(
-    yTicks: List<Pair<Number, String>>,
-    yWidth: Float,
-    xTicks: List<Pair<Number, String>>,
-    xHeight: Float
-) {
-    drawYAxis(yTicks, yWidth, xHeight)
-    drawXAxis(xTicks, xHeight, yWidth)
+private fun IPlotDrawScope.drawAxis(rect: PlotRect) {
+    drawYAxis(rect)
+    drawXAxis(rect)
 }
 
-private fun IPlotDrawScope.drawYAxis(yTicks: List<Pair<Number, String>>, yWidth: Float, xHeight: Float) {
-    val top = verticalPadding.value
-    val labelHeight =
-        plotSize.value.height - top * 2 - verticalPlotPadding.value * 2 - xHeight
-    val heightFactor = labelHeight / allSeries.yHeight
-
-    val left = 0f
-    val right = plotSize.value.width.toFloat()
-    val bottom = plotSize.value.height - verticalPadding.value - xHeight
-    if (left > right || top > bottom) return
-
-    clipRect(
-        left, top, right, bottom
-    ) {
+private fun IPlotDrawScope.drawYAxis(rect: PlotRect) {
+    clipRect(rect.yLabel) {
         translate(0f, this@drawYAxis.finalTranslation.y) {
             scale(
                 1f,
@@ -391,11 +386,12 @@ private fun IPlotDrawScope.drawYAxis(yTicks: List<Pair<Number, String>>, yWidth:
                 this@drawYAxis.scaleCenter.value - this@drawYAxis.translationOffset.value
             ) {
                 this@drawYAxis.run {
-                    val x = plotSize.value.width - horizontalPadding.value - yWidth
-                    yTicks.forEach { (y, str) ->
-                        val yScene = plotSize.value.height - y.toFloat() * heightFactor -
+                    val x =
+                        plotSize.value.width - horizontalPadding.value - rect.yLabel.width + plotTickLength.value / 2
+                    rect.yTicks.forEach { (y, str) ->
+                        val yScene = plotSize.value.height - y.toFloat() * rect.heightFactor -
                                 verticalPadding.value - verticalPlotPadding.value -
-                                xHeight
+                                rect.xLabel.height
 
                         if (drawYTicks)
                             drawLine(
@@ -428,27 +424,18 @@ private fun IPlotDrawScope.drawYAxis(yTicks: List<Pair<Number, String>>, yWidth:
     }
 }
 
-private fun IPlotDrawScope.drawXAxis(xTicks: List<Pair<Number, String>>, xHeight: Float, yWidth: Float) {
-    val labelWidth =
-        plotSize.value.width - horizontalPadding.value * 2 - horizontalPlotPadding.value * 2 - yWidth
-    val widthFactor = labelWidth / allSeries.xWidth
-
-    val left = horizontalPadding.value
-    val top = 0f
-    val right = plotSize.value.width.toFloat() - horizontalPadding.value - yWidth
-    val bottom = plotSize.value.height.toFloat()
-    if (left > right || top > bottom) return
-
-    clipRect(left, top, right, bottom) {
+private fun IPlotDrawScope.drawXAxis(rect: PlotRect) {
+    clipRect(rect.xLabel) {
         translate(this@drawXAxis.finalTranslation.x, 0f) {
             scale(
                 this@drawXAxis.scale.value,
                 1f,
                 this@drawXAxis.scaleCenter.value - this@drawXAxis.translationOffset.value
             ) {
-                val y = this@drawXAxis.plotSize.value.height - this@drawXAxis.verticalPadding.value - xHeight
+                val y = rect.xLabel.top + this@drawXAxis.plotTickLength.value / 2
                 this@drawXAxis.run { plotXTicks(allItems) }.forEach { (x, str) ->
-                    val xScene = x.toFloat() * widthFactor + left + this@drawXAxis.horizontalPlotPadding.value
+                    val xScene =
+                        x.toFloat() * rect.widthFactor + rect.xLabel.left + this@drawXAxis.horizontalPlotPadding.value
                     if (this@drawXAxis.drawXTicks)
                         drawLine(
                             this@drawXAxis.axisTicks,

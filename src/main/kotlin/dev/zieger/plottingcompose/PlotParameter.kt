@@ -138,7 +138,7 @@ private fun format(value: Number): String = decimalFormat.format(value.toDouble(
 
 fun IPlotScope.defaultXTicks(items: List<SeriesItem<*>>): List<Pair<Number, String>> {
     if (items.isEmpty()) return emptyList()
-    val vRange = items.minOf { it.x.toLong() }..items.maxOf { it.x.toLong() }
+    val vRange = items.minOf { it.data.xMin.toLong() }..items.maxOf { it.data.xMax.toLong() }
     val vWidth = vRange.run { endInclusive - start }
     val tickWidth = vWidth / 5 / scale.value
     if (tickWidth.isInfinite() || tickWidth.isNaN()) return emptyList()
