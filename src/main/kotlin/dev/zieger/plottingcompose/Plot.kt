@@ -162,7 +162,7 @@ fun IntSize.toFloat(): Size = Size(width.toFloat(), height.toFloat())
 private fun IPlotDrawScope.draw() {
     if (allSeries.isEmpty()) return
 
-    val rect = PlotRect(this)
+    val rect = PlotRect(this) ?: return
 
     drawPlotBackground(rect)
     if (drawGrid) drawGrid(rect)
@@ -187,7 +187,7 @@ data class PlotRect(
 ) {
     companion object {
 
-        operator fun invoke(scope: IPlotDrawScope): PlotRect {
+        operator fun invoke(scope: IPlotDrawScope): PlotRect? {
             val yTicks = scope.run { plotYTicks(scope.allItems) }
             val xTicks = scope.run { plotXTicks(scope.allItems) }
             val yLabelWidth = if (scope.drawYLabels) yTicks.yLabelWidth(scope) else 0.dp
@@ -195,36 +195,36 @@ data class PlotRect(
             val plotSize = scope.plotSize.value
 
             val main = scope.run {
-                Rect(
-                    horizontalPadding.value,
-                    verticalPadding.value,
-                    plotSize.width - horizontalPadding.value - yLabelWidth.value - plotTickLength.value,
-                    plotSize.height - verticalPadding.value - xLabelHeight.value - plotTickLength.value
-                )
+                val left = horizontalPadding.value
+                val right = plotSize.width - horizontalPadding.value - yLabelWidth.value - plotTickLength.value
+                val top = verticalPadding.value
+                val bottom = plotSize.height - verticalPadding.value - xLabelHeight.value - plotTickLength.value
+                if (left > right || top > bottom) return null
+                Rect(left, top, right, bottom)
             }
             val plot = scope.run {
-                Rect(
-                    main.left + horizontalPlotPadding.value,
-                    main.top + verticalPlotPadding.value,
-                    main.right - horizontalPlotPadding.value,
-                    main.bottom - verticalPlotPadding.value
-                )
+                val left = main.left + horizontalPlotPadding.value
+                val top = main.top + verticalPlotPadding.value
+                val right = main.right - horizontalPlotPadding.value
+                val bottom = main.bottom - verticalPlotPadding.value
+                if (left > right || top > bottom) return null
+                Rect(left, top, right, bottom)
             }
             val yLabel = scope.run {
-                Rect(
-                    main.right - plotTickLength.value / 2,
-                    main.top,
-                    plotSize.width - horizontalPadding.value,
-                    main.bottom
-                )
+                val left = main.right - plotTickLength.value / 2
+                val top = main.top
+                val right = plotSize.width - horizontalPadding.value
+                val bottom = main.bottom
+                if (left > right || top > bottom) return null
+                Rect(left, top, right, bottom)
             }
             val xLabel = scope.run {
-                Rect(
-                    main.left,
-                    main.bottom - plotTickLength.value / 2,
-                    main.right,
-                    plotSize.height - verticalPadding.value
-                )
+                val left = main.left
+                val top = main.bottom - plotTickLength.value / 2
+                val right = main.right
+                val bottom = plotSize.height - verticalPadding.value
+                if (left > right || top > bottom) return null
+                Rect(left, top, right, bottom)
             }
 
             return PlotRect(
