@@ -196,9 +196,11 @@ data class PlotRect(
 
             val main = scope.run {
                 val left = horizontalPadding.value
-                val right = plotSize.width - horizontalPadding.value - yLabelWidth.value - plotTickLength.value
                 val top = verticalPadding.value
-                val bottom = plotSize.height - verticalPadding.value - xLabelHeight.value - plotTickLength.value
+                val right =
+                    plotSize.width - horizontalPadding.value - yLabelWidth.value - if (scope.drawYLabels) plotTickLength.value else 0f
+                val bottom =
+                    plotSize.height - verticalPadding.value - xLabelHeight.value - if (scope.drawXLabels) plotTickLength.value else 0f
                 if (left > right || top > bottom) return null
                 Rect(left, top, right, bottom)
             }

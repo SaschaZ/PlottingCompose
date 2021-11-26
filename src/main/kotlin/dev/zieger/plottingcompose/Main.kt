@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import java.lang.Float.max
@@ -74,7 +75,7 @@ fun main() = application {
             shiftPressed.value = it.isShiftPressed
             altPressed.value = it.isAltPressed
             false
-        }) {
+        }, undecorated = true) {
             Plot(
                 parameter = PlotParameter(
                     focusAxis = Axis.X,
@@ -83,9 +84,9 @@ fun main() = application {
                         !ctrlPressed.value && shiftPressed.value && !altPressed.value -> ScrollAction.X_TRANSLATION
                         else -> ScrollAction.SCALE
                     },
-//                    verticalPadding = { 0.dp }, verticalPlotPadding = { 0.dp },
-//                    horizontalPadding = { 0.dp }, horizontalPlotPadding = { 0.dp },
-//                    drawYLabels = false, drawXLabels = false
+                    verticalPadding = { 0.dp }, verticalPlotPadding = { 0.dp },
+                    horizontalPadding = { 0.dp }, horizontalPlotPadding = { 0.dp },
+                    drawYLabels = false, drawXLabels = false
                 )
             ) {
 //                plot(0.5f) {
