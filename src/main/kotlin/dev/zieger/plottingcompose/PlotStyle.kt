@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package dev.zieger.plottingcompose
 
 import androidx.compose.ui.geometry.CornerRadius
@@ -16,128 +18,140 @@ import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
 
-interface PlotItem {
-    val x: Float
-    val y: Float
+abstract class PlotStyle<out T : PlotItem<Position.Raw>> {
+    open val z: List<Int> = listOf(0)
 
-    val xMin: Float get() = x
-    val xMax: Float get() = x
-    val yMin: Float get() = y
-    val yMax: Float get() = y
+    open fun IPlotDrawScope.draw(items: List<@UnsafeVariance T>, requestedZ: Int, plot: SinglePlot) {
+        if (requestedZ !in z) return
+        drawScene(items.filterNot { it.position.isYEmpty }.map { it.toScene(plot) })
+    }
 
-    var hasFocus: Boolean
+    abstract fun IPlotDrawScope.drawScene(items: List<PlotItem<Position.Scene>>)
 }
 
-data class SimplePlotItem(override val x: Float, override val y: Float) : PlotItem {
-    override var hasFocus = false
+class EmtpyPlotStyle<T : PlotItem<Position.Raw>> : PlotStyle<T>() {
+    override fun IPlotDrawScope.drawScene(items: List<PlotItem<Position.Scene>>) = Unit
 }
 
-val PlotItem.offset get() = Offset(x, y)
-
-abstract class PlotStyle<out T : PlotItem> {
-    open val z: Int = 0
-
-    abstract fun IPlotDrawScope.draw(items: List<@UnsafeVariance T>, rect: PlotRect)
-
-    open fun reset() = Unit
-}
-
-class EmtpyPlotStyle<T : PlotItem> : PlotStyle<T>() {
-    override fun IPlotDrawScope.draw(items: List<T>, rect: PlotRect) = Unit
-}
-
-open class Group<T : PlotItem>(vararg styles: PlotStyle<T>) : PlotStyle<T>() {
+open class Group<T : PlotItem<Position.Raw>>(vararg styles: PlotStyle<T>) : PlotStyle<T>() {
 
     private val styles = styles.toList()
 
-    override val z: Int = styles.firstOrNull()?.z
-        ?: throw IllegalArgumentException("at least one PlotStyle needs to be provided")
+    override val z: List<Int> = styles.flatMap { it.z }
 
-    override fun IPlotDrawScope.draw(items: List<T>, rect: PlotRect) {
-        styles.forEach { it.run { draw(items, rect) } }
+    override fun IPlotDrawScope.draw(items: List<T>, requestedZ: Int, plot: SinglePlot) {
+        styles.filter { requestedZ in it.z }
+            .forEach { it.run { draw(items, requestedZ, plot) } }
     }
+
+    override fun IPlotDrawScope.drawScene(items: List<PlotItem<Position.Scene>>) = Unit
 }
 
-data class Dot<T : PlotItem>(
-    val color: Color = Color.Black,
-    val width: Float = 2f
-) : PlotStyle<T>() {
-    override fun IPlotDrawScope.draw(items: List<T>, rect: PlotRect) {
+open class Single(
+    val draw: IPlotDrawScope.(Offset, Boolean) -> Unit = Dot()
+) : PlotStyle<PlotItem<Position.Raw>>() {
+    override fun IPlotDrawScope.drawScene(items: List<PlotItem<Position.Scene>>) {
+        if (items.isEmpty()) return
+
         items.forEach { item ->
-            drawCircle(color, width / 2, item.offset, color.alpha)
+            item.run { draw(item.position.offset, item.hasFocus) }
         }
     }
 }
 
-data class Line<T : PlotItem>(
-    val color: Color = Color.Black,
-    val width: Float = 1f
-) : PlotStyle<T>() {
+@Suppress("FunctionName")
+fun Dot(
+    color: Color = Color.Black, width: Float = 1f, strokeWidth: Float? = null,
+    focusColor: Color = color, focusWidth: Float = width, focusedStrokeWidth: Float? = strokeWidth
+): IPlotDrawScope.(Offset, Boolean) -> Unit = { offset, hasFocus ->
+    drawCircle(
+        if (hasFocus) focusColor else color,
+        (if (hasFocus) focusWidth else width) / 2,
+        offset,
+        if (hasFocus) focusColor.alpha else color.alpha,
+        if (hasFocus) focusedStrokeWidth?.let { Stroke(it) } ?: Fill else strokeWidth?.let { Stroke(it) } ?: Fill
+    )
+}
 
-    override val z: Int = 1
+data class Line(
+    val draw: IPlotDrawScope.(Path, Boolean) -> Unit = SimpleLine()
+) : PlotStyle<PlotItem<Position.Raw>>() {
 
-    override fun IPlotDrawScope.draw(items: List<T>, rect: PlotRect) {
-        drawPath(Path().apply {
-            items.forEach { item ->
-                val off = rect.map(item.offset)
-                when {
-                    isEmpty -> moveTo(off.x, off.y)
-                    else -> lineTo(off.x, off.y)
+    override val z: List<Int> = listOf(1)
+
+    override fun IPlotDrawScope.drawScene(items: List<PlotItem<Position.Scene>>) {
+        if (items.isEmpty()) return
+
+        var hasFocus = false
+        draw(Path().apply {
+            items.filterNot { it.position.isYEmpty }
+                .forEach { item ->
+                    val off = item.position.offset
+                    hasFocus = hasFocus || item.hasFocus
+                    when {
+                        isEmpty -> moveTo(off.x, off.y)
+                        else -> lineTo(off.x, off.y)
+                    }
                 }
-            }
-        }, color, color.alpha, Stroke(width))
+        }, hasFocus)
     }
 }
 
-
-abstract class PlotDrawer<T : PlotItem> {
-    abstract fun IPlotDrawScope.draw(offsets: Map<SeriesItem<T>, Offset>)
+@Suppress("FunctionName")
+fun SimpleLine(
+    color: Color = Color.Black, width: Float = 1f,
+    focusedColor: Color = color, focusedWidth: Float = width
+): IPlotDrawScope.(Path, Boolean) -> Unit = { path, hasFocus ->
+    drawPath(
+        path, if (hasFocus) focusedColor else color, if (hasFocus) focusedColor.alpha else color.alpha,
+        Stroke(if (hasFocus) focusedWidth else width)
+    )
 }
 
-class Filled<T : PlotItem>(
+class Filled<T : PlotItem<Position.Raw>>(
     private val color: Color,
-    upWards: Boolean = false,
-    private val baseLine: (Map<SeriesItem<T>, Offset>) -> Pair<Float, Float> =
-        {
-            (if (upWards) it.maxOf { i2 -> i2.value.y } else it.minOf { i2 -> i2.value.y })
-                .run { this to this }
-        }
-) : PlotDrawer<T>() {
-    override fun IPlotDrawScope.draw(offsets: Map<SeriesItem<T>, Offset>) {
-        if (offsets.isEmpty()) return
+    private val upWards: Boolean = false
+) : PlotStyle<T>() {
+    override fun IPlotDrawScope.drawScene(items: List<PlotItem<Position.Scene>>) {
+        val hasY = items.filterNot { it.position.isYEmpty }
+        if (hasY.isEmpty()) return
 
         val path = Path()
-        val startY = baseLine(offsets)
-        path.moveTo(offsets.entries.first().value.x, startY.first)
-        offsets.forEach { path.lineTo(it.value.x, it.value.y) }
-        path.lineTo(offsets.entries.last().value.x, startY.second)
+        val startY = if (upWards) hasY.maxOf { it.yMax } else hasY.minOf { it.yMin }
+        path.moveTo(hasY.first().position.offset.x, startY)
+        hasY.forEach { path.lineTo(it.position.offset) }
+        path.lineTo(items.last().position.offset.x, startY)
 
         drawPath(path, color, color.alpha)
     }
 }
 
+private fun Path.lineTo(offset: Offset) = lineTo(offset.x, offset.y)
+
 data class CandleSticks(
     private val positiveColor: Color = Color.Green,
     private val negativeColor: Color = Color.Red,
+    private val focusedPositiveColor: Color = Color.Cyan,
+    private val focusedNegativeColor: Color = Color.Magenta,
     private val lineColor: Color = Color.Black,
     private val lineWidth: Float = 1f
 ) : PlotStyle<Ohcl>() {
-    override fun IPlotDrawScope.draw(items: List<Ohcl>, rect: PlotRect) {
-        val wF = rect.widthFactor
-        val hF = rect.heightFactor
+
+    override fun IPlotDrawScope.draw(items: List<Ohcl>, requestedZ: Int, plot: SinglePlot) {
+        val wF = plot.widthFactor
+        val hF = plot.heightFactor
 
         items.forEach { item ->
-            val bodySize = Offset(50f * wF, (item.open - item.close).absoluteValue * hF).toSize()
-            val topLeft =
-                Offset((item.time - bodySize.width / 2) * this@draw.widthFactor.value, max(item.open, item.close)).let {
-                    Offset(rect.plot.left + wF * it.x, rect.plot.bottom - hF * it.y)
-                }
+            val bodySize = Size(50f * wF * widthFactor.value, (item.open - item.close).absoluteValue * hF)
+            val topLeft = plot.toScene(Offset((item.time - bodySize.width / 2), max(item.open, item.close)))
 
+            val color = if (item.open <= item.close) if (item.hasFocus) focusedPositiveColor else positiveColor else
+                if (item.hasFocus) focusedNegativeColor else negativeColor
             drawRect(
-                if (item.open <= item.close) positiveColor else negativeColor,
+                color,
                 topLeft,
                 bodySize,
-                alpha = if (item.open <= item.close) positiveColor.alpha else negativeColor.alpha
+                alpha = color.alpha
             )
             drawRect(
                 lineColor,
@@ -166,9 +180,11 @@ data class CandleSticks(
             )
         }
     }
+
+    override fun IPlotDrawScope.drawScene(items: List<PlotItem<Position.Scene>>) = Unit
 }
 
-data class Label<T : PlotItem>(
+data class Label<T : PlotItem<Position.Raw>>(
     val fontSize: Float = 18f,
     val contentColor: Color = Color.Black,
     val backgroundColor: Color = Color.White,
@@ -180,9 +196,11 @@ data class Label<T : PlotItem>(
     val content: (T) -> String
 ) : PlotStyle<T>() {
 
-    override val z: Int = 100
+    override val z: List<Int> = listOf(100)
 
-    override fun IPlotDrawScope.draw(items: List<T>, rect: PlotRect) {
+    override fun IPlotDrawScope.drawScene(items: List<PlotItem<Position.Scene>>) = Unit
+
+    override fun IPlotDrawScope.draw(items: List<T>, requestedZ: Int, plot: SinglePlot) {
         items.filter { it.hasFocus }
             .forEach { item ->
                 val c = content(item)
@@ -190,9 +208,9 @@ data class Label<T : PlotItem>(
                 val lines = c.split('\n').map { it to TextLine.make(it, font) }
                 val labelWidth = lines.maxOf { it.second.width } / scale.value
                 val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value
-                val plotRect = rect.main
+                val plotRect = plot.main
 
-                val position = mousePosition.value ?: item.offset
+                val position = mousePosition.value ?: item.position.offset
 
                 val (startTop, size) = when {
                     position.x < plotRect.left + plotRect.width * 0.5f -> Offset(
@@ -251,4 +269,3 @@ data class Label<T : PlotItem>(
     }
 }
 
-private fun Offset.toSize(): Size = Size(x, y)

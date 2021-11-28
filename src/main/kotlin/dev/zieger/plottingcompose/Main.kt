@@ -8,7 +8,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import java.lang.Float.max
@@ -29,19 +28,20 @@ fun main() = application {
 
         val candles = remember {
             var lastClose: Float? = null
-            Series((0..100).map {
+            PlotSeries((0..100).map {
                 OhclItem(randomOhcl(it.toLong(), lastClose).also { c -> lastClose = c.close })
             }, CandleSticks(),
-                Label { i -> "${i.time}\n${i.close}" })
+                Label<Ohcl> { i -> "${i.time}\n${i.close}" })
         }
         val sma = remember {
             val closes = candles.items.map { it.data.time to it.data.close }
-            Series(
+            PlotSeries(
                 closes.mapIndexed { idx, (x, _) ->
                     x to closes.subList((idx - 24).coerceAtLeast(0), idx)
                         .map { it.second }.average()
-                }.map { (x, sma) -> if (sma.isNaN() || sma.isInfinite()) x to 0f else x to sma }
-                    .map { (x, sma) -> SeriesItem(x, sma) }, Line(Color.Magenta, 2f)
+                }.map { (x, sma) -> if (sma.isNaN() || sma.isInfinite()) x to null else x to sma }
+                    .map { (x, sma) -> SeriesItem(x, sma) },
+                Line(SimpleLine(Color.Blue, 2f))
             )
         }
 //        val values = remember {
@@ -84,13 +84,13 @@ fun main() = application {
                         !ctrlPressed.value && shiftPressed.value && !altPressed.value -> ScrollAction.X_TRANSLATION
                         else -> ScrollAction.SCALE
                     },
-                    verticalPadding = { 0.dp }, verticalPlotPadding = { 0.dp },
-                    horizontalPadding = { 0.dp }, horizontalPlotPadding = { 0.dp },
-                    drawYLabels = false, drawXLabels = false
+//                    verticalPadding = { 0.dp }, verticalPlotPadding = { 0.dp },
+//                    horizontalPadding = { 0.dp }, horizontalPlotPadding = { 0.dp },
+//                    drawYLabels = false, drawXLabels = false
                 )
             ) {
 //                plot(0.5f) {
-                add(candles)
+                set(candles)
                 add(sma)
 //                }
             }

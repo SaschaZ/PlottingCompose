@@ -4,10 +4,10 @@ package dev.zieger.plottingcompose.scopes
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import dev.zieger.plottingcompose.Series
+import dev.zieger.plottingcompose.PlotSeries
 
 interface IPlotDrawScope : IPlotParameterScope, DrawScope {
-    val allSeries: SnapshotStateList<Series<*>>
+    val allSeries: SnapshotStateList<PlotSeries<*>>
     val allItems get() = allSeries.flatMap { it.items }
 }
 
@@ -15,8 +15,8 @@ interface IPlotDrawScope : IPlotParameterScope, DrawScope {
 fun PlotDrawScope(
     plotParameterScope: IPlotParameterScope,
     drawScope: DrawScope,
-    allSeries: SnapshotStateList<Series<*>>
+    allSeries: SnapshotStateList<PlotSeries<*>>
 ): IPlotDrawScope =
     object : IPlotDrawScope, IPlotParameterScope by plotParameterScope, DrawScope by drawScope {
-        override val allSeries: SnapshotStateList<Series<*>> = allSeries
+        override val allSeries: SnapshotStateList<PlotSeries<*>> = allSeries
     }

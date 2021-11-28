@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
+import dev.zieger.plottingcompose.IParameter
 
 
 interface IPlotScope {
@@ -17,14 +18,18 @@ interface IPlotScope {
     val mousePosition: MutableState<Offset?>
     val widthFactor: MutableState<Float>
     val widthFactorCenter: MutableState<Offset>
-    val heightFactor: MutableState<Float>
 
-    val finalTranslation: Offset
-        get() = translation.value + translationOffset.value
+    fun finalTranslation(params: IParameter): Offset = params.run {
+        translation.value.run {
+            copy(x = x - (widthFactorCenter.value.x - horizontalPadding.value - horizontalPlotPadding.value).let {
+                it * (widthFactor.value - 1)
+            })
+        } + translationOffset.value
+    }
 }
 
 @Composable
-fun PlotScope() = object : IPlotScope {
+fun PlotScope(parameter: IParameter): IPlotScope = (object : IPlotScope {
     override val plotSize: MutableState<IntSize> = remember { mutableStateOf(IntSize.Zero) }
     override val translation: MutableState<Offset> = remember { mutableStateOf(Offset.Zero) }
     override val translationOffset: MutableState<Offset> = remember { mutableStateOf(Offset.Zero) }
@@ -33,5 +38,4 @@ fun PlotScope() = object : IPlotScope {
     override val mousePosition: MutableState<Offset?> = remember { mutableStateOf(null) }
     override val widthFactor: MutableState<Float> = remember { mutableStateOf(1f) }
     override val widthFactorCenter: MutableState<Offset> = remember { mutableStateOf(Offset.Zero) }
-    override val heightFactor: MutableState<Float> = remember { mutableStateOf(1f) }
-}
+})
