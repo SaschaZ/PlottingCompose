@@ -15,6 +15,7 @@ data class SinglePlot(
     val plot: Rect,
     val yLabel: Rect,
     val xLabel: Rect,
+    val xTopTicks: Rect,
     val widthFactor: Float,
     val heightFactor: Float,
     val yTicks: List<Pair<Number, String>>,
@@ -32,43 +33,51 @@ data class SinglePlot(
             val plotSize = scope.plotSize.value
 
             val main = scope.run {
-                val left = horizontalPadding.value
-                val top = verticalPadding.value
+                val left = horizontalPadding().value
+                val top = verticalPadding().value
                 val right =
-                    plotSize.width - horizontalPadding.value - yLabelWidth.value - if (scope.drawYLabels) plotTickLength.value else 0f
+                    plotSize.width - horizontalPadding().value - yLabelWidth.value - if (scope.drawYLabels) plotTickLength().value else 0f
                 val bottom =
-                    plotSize.height - verticalPadding.value - xLabelHeight.value - if (scope.drawXLabels) plotTickLength.value else 0f
+                    plotSize.height - verticalPadding().value - xLabelHeight.value - if (scope.drawXLabels) plotTickLength().value else 0f
                 if (left > right || top > bottom) return null
                 Rect(left, top, right, bottom)
             }
             val plot = scope.run {
-                val left = main.left + horizontalPlotPadding.value
-                val top = main.top + verticalPlotPadding.value
-                val right = main.right - horizontalPlotPadding.value
-                val bottom = main.bottom - verticalPlotPadding.value
+                val left = main.left + horizontalPlotPadding().value
+                val top = main.top + verticalPlotPadding().value
+                val right = main.right - horizontalPlotPadding().value
+                val bottom = main.bottom - verticalPlotPadding().value
                 if (left > right || top > bottom) return null
                 Rect(left, top, right, bottom)
             }
             val yLabel = scope.run {
-                val left = main.right - plotTickLength.value / 2
+                val left = main.right - plotTickLength().value / 2
                 val top = main.top
-                val right = plotSize.width - horizontalPadding.value
+                val right = plotSize.width - horizontalPadding().value
                 val bottom = main.bottom
                 if (left > right || top > bottom) return null
                 Rect(left, top, right, bottom)
             }
             val xLabel = scope.run {
                 val left = main.left
-                val top = main.bottom - plotTickLength.value / 2
+                val top = main.bottom - plotTickLength().value / 2
                 val right = main.right
-                val bottom = plotSize.height - verticalPadding.value
+                val bottom = plotSize.height - verticalPadding().value
+                if (left > right || top > bottom) return null
+                Rect(left, top, right, bottom)
+            }
+            val xTopTicks = scope.run {
+                val left = main.left
+                val top = main.top - plotTickLength().value / 2
+                val right = main.right
+                val bottom = main.top + plotTickLength().value / 2
                 if (left > right || top > bottom) return null
                 Rect(left, top, right, bottom)
             }
 
             return SinglePlot(
                 scope,
-                main, plot, yLabel, xLabel,
+                main, plot, yLabel, xLabel, xTopTicks,
                 plot.width / scope.allSeries.xWidth,
                 plot.height / scope.allSeries.yHeight,
                 yTicks, xTicks, scope.widthFactor, scope.widthFactorCenter
@@ -76,12 +85,12 @@ data class SinglePlot(
         }
 
         private fun List<Pair<Number, String>>.yLabelWidth(scope: IPlotDrawScope): Dp {
-            val font = Font(null, scope.plotLabelFontSize)
+            val font = Font(null, scope.plotLabelFontSize(scope))
             return maxOf { TextLine.make(it.second, font).width }.dp
         }
 
         private fun List<Pair<Number, String>>.xLabelHeight(scope: IPlotDrawScope): Dp {
-            val font = Font(null, scope.plotLabelFontSize)
+            val font = Font(null, scope.plotLabelFontSize(scope))
             return maxOf { TextLine.make(it.second, font).height }.dp
         }
     }

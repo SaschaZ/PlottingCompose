@@ -268,4 +268,3 @@ data class Label<T : PlotItem<Position.Raw>>(
             }
     }
 }
-

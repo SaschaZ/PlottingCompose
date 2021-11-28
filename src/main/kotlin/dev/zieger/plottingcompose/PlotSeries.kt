@@ -6,7 +6,7 @@ class PlotSeries<T : PlotItem<Position.Raw>>(
 ) {
     val xRange = items.minOf { it.data.position.offset.x }..items.maxOf { it.data.position.offset.x }
     val xWidth = xRange.run { endInclusive - start }
-    val yRange = items.minOf { it.data.yMin }..items.maxOf { it.data.yMax }
+    val yRange = items.filterNot { it.data.position.isYEmpty }.run { minOf { it.data.yMin }..maxOf { it.data.yMax } }
     val yHeight = yRange.run { endInclusive - start }
 
     val styles = style.toList()

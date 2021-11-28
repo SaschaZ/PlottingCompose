@@ -9,4 +9,4 @@ interface IPlotParameterScope : IPlotScope, IParameter, IPlotColors
 
 @Composable
 fun PlotParameterScope(plotScope: IPlotScope, parameter: IParameter, colors: IPlotColors): IPlotParameterScope =
-    object : IPlotParameterScope, IPlotScope by plotScope, IPlotColors by colors, IParameter by parameter.withPlotScope(plotScope) {}
+    object : IPlotParameterScope, IPlotScope by plotScope, IPlotColors by colors, IParameter by parameter {}

@@ -27,7 +27,7 @@ sealed class Position {
         override val yRange: ClosedRange<Float> = offset.y..offset.y,
         override val isYEmpty: Boolean = false
     ) : Position() {
-        override fun screen(plot: SinglePlot): Screen = Screen(scene(plot).offset)
+        override fun screen(plot: SinglePlot): Screen = scene(plot).run { Screen(offset, yRange, isYEmpty) }
     }
 
     data class Scene(
