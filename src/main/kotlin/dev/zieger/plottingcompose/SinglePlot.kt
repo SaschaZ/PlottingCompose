@@ -84,6 +84,7 @@ data class SinglePlot(
         }
 
         private fun List<Pair<Number, String>>.yLabelFontSize(scope: IPlotDrawScope): Float {
+            if (isEmpty()) return 0f
             fun labelWidth(fontSize: Float): Float {
                 val font = Font(null, fontSize)
                 return maxOf { (_, lbl) -> TextLine.make(lbl, font).width }
@@ -96,7 +97,17 @@ data class SinglePlot(
         }
 
         private fun List<Pair<Number, String>>.xLabelFontSize(scope: IPlotDrawScope): Float {
-            return 24f
+            if (isEmpty()) return 0f
+            fun labelHeight(fontSize: Float): Float {
+                val font = Font(null, fontSize)
+                return maxOf { (_, lbl) -> TextLine.make(lbl, font).height }
+            }
+
+            var fontSize = 30f
+            do {
+                val diff = scope.plotXLabelHeight(scope).value - labelHeight(fontSize--)
+            } while (diff < 0f)
+            return fontSize
         }
     }
 
