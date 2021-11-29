@@ -1,16 +1,20 @@
 package dev.zieger.plottingcompose
 
-import androidx.compose.ui.geometry.Offset
 import kotlin.math.absoluteValue
 import kotlin.math.min
 
-interface Ohcl : PlotItem<Position.Raw> {
+interface Ohcl : PlotItem {
     val time: Long
     val open: Float
     val high: Float
     val close: Float
     val low: Float
     val volume: Long
+
+    override val x: Float
+        get() = time.toFloat()
+    override val y: Map<Int, Float?>
+        get() = mapOf(0 to open, 1 to high, 2 to close, 3 to low)
 
     val mid: Float
         get() = (low + ((high - low) / 2) + (min(open, close) + (open - close).absoluteValue / 2)) / 2
@@ -20,8 +24,9 @@ interface Ohcl : PlotItem<Position.Raw> {
 }
 
 class OhclItem(
-    ohcl: Ohcl
-) : SeriesItem<Ohcl>(ohcl) {
+    ohcl: Ohcl,
+    vararg style: PlotStyle.SinglePlotStyle<Ohcl> = arrayOf(CandleSticks()),
+) : PlotSeriesItem<Ohcl>(ohcl, *style) {
     constructor(
         time: Long,
         open: Float,
@@ -31,8 +36,8 @@ class OhclItem(
         volume: Long
     ) : this(OhclValue(time, open, high, close, low, volume))
 
-    override val yMin: Number = ohcl.low
-    override val yMax: Number = ohcl.high
+    override val yMin: Float = ohcl.low
+    override val yMax: Float = ohcl.high
 }
 
 data class OhclValue(
@@ -43,9 +48,9 @@ data class OhclValue(
     override val low: Float,
     override val volume: Long
 ) : Ohcl {
-    override val position: Position.Raw = Position.Raw(
-        Offset(time.toFloat(), close),
-        yRange = low..high
-    )
     override var hasFocus: Boolean = false
+
+    override fun copy(x: Float, y: Map<Int, Float?>, hasFocus: Boolean) = OhclValue(
+        x.toLong(), y[0]!!, y[1]!!, y[2]!!, y[3]!!, volume
+    ).apply { this.hasFocus = hasFocus }
 }

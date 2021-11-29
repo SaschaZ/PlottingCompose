@@ -15,6 +15,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import java.lang.Float.max
 import java.lang.Float.min
+import kotlin.math.absoluteValue
 import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -27,59 +28,71 @@ fun main() = application {
             val high = max(open, close) + Random.nextFloat() * 5_000f
             val low = min(open, close) - Random.nextFloat() * 5_000f
             return OhclValue(
-                time * 60, open, high, close, low, Random.nextLong()
+                time * 60, open, high, close, low, Random.nextLong().absoluteValue % 2000L
             )
         }
 
         val candles = remember {
             var lastClose: Float? = null
-            PlotSeries((0..100).map {
-                OhclItem(randomOhcl(it.toLong(), lastClose).also { c -> lastClose = c.close })
-            }, CandleSticks(),
-                Label<Ohcl> { i -> "${i.time}\n${i.close}" })
+            PlotSeries((0..150).map { idx ->
+                OhclItem(randomOhcl(idx.toLong(), lastClose).also { c -> lastClose = c.close },
+                    SingleFocusable<Ohcl>(CandleSticks(), CandleSticks(Color.Yellow, Color.Blue)),
+                    Label { "${it.time}\n${it.volume}" })
+            })
+        }
+        val volume = remember {
+            PlotSeries(
+                candles.items.map {
+                    PlotSeriesItem(
+                        SimplePlotItem(it.item.time.toFloat(), it.item.volume.toFloat()),
+                        Impulses(if (it.item.open <= it.item.close) Color.Green else Color.Red)
+                    )
+                }
+            )
         }
         val sma = remember {
-            val closes = candles.items.map { it.data.time to it.data.close }
+            val closes = candles.items.map { it.item.time to it.item.close }
             PlotSeries(
                 closes.mapIndexed { idx, (x, _) ->
                     x to closes.subList((idx - 24).coerceAtLeast(0), idx)
                         .map { it.second }.average()
                 }.map { (x, sma) -> if (sma.isNaN() || sma.isInfinite()) x to null else x to sma }
-                    .map { (x, sma) -> SeriesItem(x, sma) },
-                Line(SimpleLine(Color.Blue, 2f))
+                    .map { (x, sma) -> PlotSeriesItem(SimplePlotItem(x.toFloat(), sma?.toFloat())) },
+                Line()
             )
         }
         val bb = remember {
             val stdDev = sma.items.mapIndexed { idx, _ ->
                 val items = sma.items.subList((idx - 20).coerceAtLeast(0), idx)
-                    .map { it.data.position.offset.y }
+                    .mapNotNull { it.item.y.values.first() }
                 if (idx > 22) {
                     val avg = items.average()
                     sqrt(items.sumOf { (it - avg).pow(2) })
                 } else null
             }
             val bb = sma.items.mapIndexed { idx, item ->
-                item.data.position.offset.x to item.data.position.let {
+                item.item.x to item.item.y.values.firstOrNull()?.let {
                     Triple(
-                        stdDev[idx]?.let { s -> it.offset.y - s },
-                        if (it.isYEmpty) null else it.offset.y,
-                        stdDev[idx]?.let { s -> it.offset.y + s }
+                        stdDev[idx]?.let { s -> it - s },
+                        it,
+                        stdDev[idx]?.let { s -> it + s }
                     )
                 }
             }
-            listOf(
-                PlotSeries(
-                    bb.map { (x, y) -> SeriesItem(x, y.first) },
-                    Line(SimpleLine(Color.Blue))
-                ),
-                PlotSeries(
-                    bb.map { (x, y) -> SeriesItem(x, y.second) },
-                    Line(SimpleLine(Color.Blue))
-                ),
-                PlotSeries(
-                    bb.map { (x, y) -> SeriesItem(x, y.third) },
-                    Line(SimpleLine(Color.Blue))
-                )
+            PlotSeries(
+                bb.map { (x, y) ->
+                    PlotSeriesItem(
+                        SimplePlotItem(
+                            x,
+                            *y?.toList()?.map { it?.toFloat() }?.toTypedArray() ?: emptyArray()
+                        )
+                    )
+                },
+                Line(Color.Blue) { it.y[0] },
+                Line(Color.Blue) { it.y[1] },
+                Line(Color.Blue) { it.y[2] },
+                FillBetween { it.y[0]?.let { y0 -> it.y[1]?.let { y1 -> y0 to y1 } } },
+                FillBetween { it.y[1]?.let { y0 -> it.y[2]?.let { y1 -> y0 to y1 } } }
             )
         }
 //        val values = remember {
@@ -130,12 +143,10 @@ fun main() = application {
             ) {
                 plot(0.75f, it.copy(drawXLabels = false)) {
                     set(candles)
-                    add(bb[0])
-                    add(bb[1])
-                    add(bb[2])
+                    add(bb)
                 }
                 plot(0.25f) {
-                    set(sma)
+                    set(volume)
                 }
             }
         }

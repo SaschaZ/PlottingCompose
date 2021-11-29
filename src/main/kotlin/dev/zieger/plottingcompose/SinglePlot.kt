@@ -3,8 +3,6 @@ package dev.zieger.plottingcompose
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
@@ -20,25 +18,25 @@ data class SinglePlot(
     val heightFactor: Float,
     val yTicks: List<Pair<Number, String>>,
     val xTicks: List<Pair<Number, String>>,
+    val yLabelFontSize: Float,
+    val xLabelFontSize: Float,
     val xStretch: MutableState<Float>,
     val xStretchCenter: MutableState<Offset>,
 ) {
     companion object {
 
         operator fun invoke(scope: IPlotDrawScope): SinglePlot? {
-            val yTicks = scope.run { plotYTicks(scope.allItems) }
-            val xTicks = scope.run { plotXTicks(scope.allItems) }
-            val yLabelWidth = if (scope.drawYLabels) yTicks.yLabelWidth(scope) else 0.dp
-            val xLabelHeight = if (scope.drawXLabels) xTicks.xLabelHeight(scope) else 0.dp
+            val yTicks = scope.run { plotYTicks(scope.allY) }
+            val xTicks = scope.run { plotXTicks(scope.allX) }
             val plotSize = scope.plotSize.value
 
             val main = scope.run {
                 val left = horizontalPadding().value
                 val top = verticalPadding().value
                 val right =
-                    plotSize.width - horizontalPadding().value - yLabelWidth.value - if (scope.drawYLabels) plotTickLength().value else 0f
+                    plotSize.width - horizontalPadding().value - if (scope.drawYLabels) (plotTickLength().value + plotYLabelWidth().value) else 0f
                 val bottom =
-                    plotSize.height - verticalPadding().value - xLabelHeight.value - if (scope.drawXLabels) plotTickLength().value else 0f
+                    plotSize.height - verticalPadding().value - if (scope.drawXLabels) (plotTickLength().value + plotXLabelHeight().value) else 0f
                 if (left > right || top > bottom) return null
                 Rect(left, top, right, bottom)
             }
@@ -80,18 +78,26 @@ data class SinglePlot(
                 main, plot, yLabel, xLabel, xTopTicks,
                 plot.width / scope.allSeries.xWidth,
                 plot.height / scope.allSeries.yHeight,
-                yTicks, xTicks, scope.widthFactor, scope.widthFactorCenter
+                yTicks, xTicks, yTicks.yLabelFontSize(scope), xTicks.xLabelFontSize(scope),
+                scope.widthFactor, scope.widthFactorCenter
             )
         }
 
-        private fun List<Pair<Number, String>>.yLabelWidth(scope: IPlotDrawScope): Dp {
-            val font = Font(null, scope.plotLabelFontSize(scope))
-            return maxOf { TextLine.make(it.second, font).width }.dp
+        private fun List<Pair<Number, String>>.yLabelFontSize(scope: IPlotDrawScope): Float {
+            fun labelWidth(fontSize: Float): Float {
+                val font = Font(null, fontSize)
+                return maxOf { (_, lbl) -> TextLine.make(lbl, font).width }
+            }
+
+            var fontSize = 30f
+            do {
+                val diff = scope.plotYLabelWidth(scope).value - labelWidth(fontSize--)
+            } while (diff < 0f)
+            return fontSize
         }
 
-        private fun List<Pair<Number, String>>.xLabelHeight(scope: IPlotDrawScope): Dp {
-            val font = Font(null, scope.plotLabelFontSize(scope))
-            return maxOf { TextLine.make(it.second, font).height }.dp
+        private fun List<Pair<Number, String>>.xLabelFontSize(scope: IPlotDrawScope): Float {
+            return 24f
         }
     }
 

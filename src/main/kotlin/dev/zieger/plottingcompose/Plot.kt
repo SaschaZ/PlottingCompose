@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
@@ -148,16 +149,7 @@ private operator fun IntSize.div(fl: Float): Offset {
 }
 
 fun SinglePlot.applyTranslationOffset(allSeries: SnapshotStateList<PlotSeries<*>>) = scope.run {
-    val items = allSeries.flatMap { it.items }.filterNot { it.data.position.isYEmpty }
-    if (items.isEmpty()) return
-
-    val yTicks = plotYTicks(items)
-    if (yTicks.isEmpty()) return
-    val font = Font(null, plotLabelFontSize())
-    val yWidth = yTicks.maxOf { TextLine.make(it.second, font).width }
-    val xTicks = plotXTicks(items)
-    if (xTicks.isEmpty()) return
-    val xHeight = xTicks.maxOf { TextLine.make(it.second, font).height }
+    if (plotSize.value.width == 0 || plotSize.value.height == 0) return
 
     val widthFactor = allSeries.xWidth / plot.height
     val heightFactor = allSeries.yHeight / plot.height
@@ -200,10 +192,13 @@ private fun SinglePlot.drawPlot(
                 this@run.scaleCenter.value - this@run.translationOffset.value
             ) {
                 this@run.run {
-                    allSeries.flatMap { i -> i.styles.flatMap { s -> s.z.map { z -> Triple(i.items, s, z) } } }
-                        .sortedBy { it.third }
-                        .forEach { (items, style, z) ->
-                            style.run { draw(items.map { it.data }, z, this@drawPlot) }
+                    val singleStyles =
+                        allSeries.flatMap { aS -> aS.items }.flatMap { i -> i.styles.map { s -> s to listOf(i) } }
+                    val seriesStyles = allSeries.flatMap { aS -> aS.styles.map { s -> s to aS.items } }
+                    (singleStyles + seriesStyles).flatMap { s -> s.first.z.map { z -> s to z } }
+                        .sortedBy { it.second }
+                        .forEach { (style, z) ->
+                            style.first.run { draw(style.second, z, this@drawPlot) }
                         }
                 }
             }
@@ -216,11 +211,11 @@ fun IPlotDrawScope.clipRect(rect: Rect, block: DrawScope.() -> Unit) = rect.run 
 }
 
 private fun SinglePlot.applyFocusedFlag(axis: Axis) {
-    scope.allItems.map { it to it.data.toScene(this) }
-        .sortedBy { (_, offset) ->
-            scope.run { distanceToMouse(axis, offset.position.offset) }
-        }.forEachIndexed { idx, (item, offset) ->
-            item.data.hasFocus = idx == 0 && scope.run { distanceToMouse(axis, offset.position.offset) } < 100f
+    scope.allItems.mapNotNull { it.item.offset?.let { o -> it to toScene(o) } }
+        .sortedBy { (_, mapped) ->
+            scope.run { distanceToMouse(axis, mapped) }
+        }.forEachIndexed { idx, (item, mapped) ->
+            item.item.hasFocus = idx == 0 && scope.run { distanceToMouse(axis, mapped) } < 1000f
         }
 }
 
@@ -338,14 +333,14 @@ private fun SinglePlot.drawYAxis() = scope.run {
                         if (drawYLabels) {
                             val offset = Offset(
                                 (x + plotTickLength().value),
-                                yScene + plotLabelFontSize() / 3 / scale.value
+                                yScene + yLabelFontSize / 3 / scale.value
                             )
                             scale(1 / scale.value, 1 / scale.value, offset) {
                                 this@run2.run {
                                     drawText(
                                         str,
                                         offset,
-                                        plotLabelFontSize(),
+                                        yLabelFontSize,
                                         axisLabels,
                                         scale.value
                                     )
@@ -369,7 +364,7 @@ private fun SinglePlot.drawXAxis() = scope.run {
             ) {
                 this@run.run run2@{
                     val y = xTopTicks.top + plotTickLength().value / 2
-                    plotXTicks(allItems).forEach { (x, str) ->
+                    plotXTicks(allX).forEach { (x, str) ->
                         val xScene =
                             x.toFloat() * this@drawXAxis.widthFactor * widthFactor.value + xLabel.left + horizontalPlotPadding().value
                         if (drawXTicks)
@@ -393,7 +388,7 @@ private fun SinglePlot.drawXAxis() = scope.run {
             ) {
                 this@run.run run2@{
                     val y = xLabel.top + plotTickLength().value / 2
-                    plotXTicks(allItems).forEach { (x, str) ->
+                    plotXTicks(allX).forEach { (x, str) ->
                         val xScene =
                             x.toFloat() * this@drawXAxis.widthFactor * widthFactor.value + xLabel.left + horizontalPlotPadding().value
                         if (drawXTicks)
@@ -404,7 +399,7 @@ private fun SinglePlot.drawXAxis() = scope.run {
                             )
 
                         if (drawXLabels) {
-                            val textLine = TextLine.make(str, Font(null, plotLabelFontSize()))
+                            val textLine = TextLine.make(str, Font(null, xLabelFontSize))
                             val offset = Offset(
                                 xScene - textLine.width / 2 / scale.value,
                                 (y + plotTickLength().value + textLine.height)
@@ -414,7 +409,7 @@ private fun SinglePlot.drawXAxis() = scope.run {
                                     drawText(
                                         str,
                                         offset,
-                                        this@run2.run { plotLabelFontSize() },
+                                        this@run2.run { xLabelFontSize },
                                         this@run2.axisLabels
                                     )
                                 }

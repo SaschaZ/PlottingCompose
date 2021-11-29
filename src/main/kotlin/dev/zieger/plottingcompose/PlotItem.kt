@@ -2,38 +2,31 @@ package dev.zieger.plottingcompose
 
 import androidx.compose.ui.geometry.Offset
 
-interface PlotItem<P : Position> {
-    val position: P
+interface PlotItem {
+    val x: Float
+    val y: Map<Int, Float?>
 
-    val yMin: Float get() = position.yRange.start
-    val yMax: Float get() = position.yRange.endInclusive
+    val offset: Offset? get() = y.values.firstOrNull()?.let { Offset(x, it) }
+
+    val yMin: Float? get() = y.values.filterNotNull().minOfOrNull { it }
+    val yMax: Float? get() = y.values.filterNotNull().maxOfOrNull { it }
 
     var hasFocus: Boolean
 
-    fun toScene(plot: SinglePlot): PlotItem<Position.Scene> = ScenePlotItem(this, plot)
-    fun toScreen(plot: SinglePlot): PlotItem<Position.Screen> = ScreenPlotItem(this, plot)
-}
-
-data class SimplePlotItem(override val position: Position.Raw) : PlotItem<Position.Raw> {
-    constructor(x: Float, y: Float?, z: Int = 0, yRange: ClosedRange<Float> = (y ?: 0f)..(y ?: 0f)) : this(
-        Position.Raw(Offset(x, y ?: 0f), yRange, y == null)
+    fun map(plot: SinglePlot): PlotItem = copy(
+        plot.toScene(this@PlotItem.x, 0f).x,
+        this@PlotItem.y.entries.associate { (idx, value) -> idx to value?.let { v -> plot.toScene(0f, v).y } },
+        hasFocus
     )
 
-    override var hasFocus = false
+    fun copy(x: Float = this.x, y: Map<Int, Float?> = this.y, hasFocus: Boolean): PlotItem
 }
 
-data class ScenePlotItem(
-    override val position: Position.Scene,
+class SimplePlotItem(override val x: Float, vararg y: Float?) : PlotItem {
+    override val y: Map<Int, Float?> = y.mapIndexed { idx, v -> idx to v }.toMap()
     override var hasFocus: Boolean = false
-) : PlotItem<Position.Scene> {
-    constructor(item: PlotItem<*>, plot: SinglePlot) : this(item.position.scene(plot), item.hasFocus)
-}
 
-data class ScreenPlotItem(
-    override val position: Position.Screen,
-    override var hasFocus: Boolean = false
-) : PlotItem<Position.Screen> {
-    constructor(item: PlotItem<*>, plot: SinglePlot) : this(item.position.screen(plot), item.hasFocus)
+    override fun copy(x: Float, y: Map<Int, Float?>, hasFocus: Boolean) = SimplePlotItem(x, *y.values.toTypedArray())
+        .apply { this.hasFocus = hasFocus }
 }
-
 

@@ -23,11 +23,15 @@ interface IPlotScope {
     val applyTranslationOffset: MutableState<Boolean>
 
     fun finalTranslation(params: IParameter): Offset = params.run {
-        translation.value.run {
-            copy(x = x - (widthFactorCenter.value.x - horizontalPadding().value - horizontalPlotPadding().value).let {
-                it * (widthFactor.value - 1)
-            })
-        } + translationOffset.value
+        try {
+            translation.value.run {
+                copy(x = x - (widthFactorCenter.value.x - horizontalPadding().value - horizontalPlotPadding().value).let {
+                    it * (widthFactor.value - 1)
+                })
+            } + translationOffset.value
+        } catch (t: Throwable) {
+            translation.value
+        }
     }
 }
 

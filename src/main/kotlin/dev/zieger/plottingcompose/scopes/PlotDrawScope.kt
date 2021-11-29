@@ -9,6 +9,8 @@ import dev.zieger.plottingcompose.PlotSeries
 interface IPlotDrawScope : IPlotParameterScope, DrawScope {
     val allSeries: SnapshotStateList<PlotSeries<*>>
     val allItems get() = allSeries.flatMap { it.items }
+    val allX get() = allSeries.flatMap { it.items }.map { it.item.x }
+    val allY get() = allSeries.flatMap { it.items }.flatMap { it.item.y.values }.filterNotNull()
 }
 
 

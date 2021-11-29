@@ -18,9 +18,10 @@ interface IParameter {
 
     val gridStrokeWidth: IPlotScope.() -> Float
 
-    val plotYTicks: IPlotParameterScope.(items: List<SeriesItem<*>>) -> List<Pair<Number, String>>
-    val plotXTicks: IPlotParameterScope.(items: List<SeriesItem<*>>) -> List<Pair<Number, String>>
-    val plotLabelFontSize: IPlotScope.() -> Float
+    val plotYTicks: IPlotParameterScope.(items: List<Float>) -> List<Pair<Number, String>>
+    val plotXTicks: IPlotParameterScope.(items: List<Float>) -> List<Pair<Number, String>>
+    val plotYLabelWidth: IPlotScope.() -> Dp
+    val plotXLabelHeight: IPlotScope.() -> Dp
     val plotTickLength: IPlotScope.() -> Dp
     val plotTickWidth: IPlotScope.() -> Float
 
@@ -48,19 +49,20 @@ data class PlotParameter(
     override val horizontalPlotPadding: IPlotScope.() -> Dp = { plotSize.value.width.dp * 0.025f },
     override val verticalPlotPadding: IPlotScope.() -> Dp = { plotSize.value.height.dp * 0.025f },
     override val gridStrokeWidth: IPlotScope.() -> Float = { 1f / scale.value },
-    override val plotYTicks: IPlotParameterScope.(List<SeriesItem<*>>) -> List<Pair<Number, String>> = {
+    override val plotYTicks: IPlotParameterScope.(List<Float>) -> List<Pair<Number, String>> = {
         defaultYTicks(
             it
         )
     },
-    override val plotXTicks: IPlotParameterScope.(List<SeriesItem<*>>) -> List<Pair<Number, String>> = {
+    override val plotXTicks: IPlotParameterScope.(List<Float>) -> List<Pair<Number, String>> = {
         defaultXTicks(
             it
         )
     },
-    override val plotLabelFontSize: IPlotScope.() -> Float = { 24f },
     override val plotTickLength: IPlotScope.() -> Dp = { 10.dp },
     override val plotTickWidth: IPlotScope.() -> Float = { 1f },
+    override val plotYLabelWidth: IPlotScope.() -> Dp = { plotSize.value.width.dp * 0.15f },
+    override val plotXLabelHeight: IPlotScope.() -> Dp = { plotSize.value.height.dp * 0.15f },
     override val drawYLabels: Boolean = true,
     override val drawXLabels: Boolean = true,
     override val drawYTicks: Boolean = true,
@@ -73,10 +75,10 @@ data class PlotParameter(
     override val scrollAction: ScrollAction = ScrollAction.SCALE
 ) : IParameter
 
-fun IPlotParameterScope.defaultYTicks(items: List<SeriesItem<*>>): List<Pair<Number, String>> {
-    val validItems = items.filterNot { it.data.position.isYEmpty }
-    if (validItems.isEmpty()) return emptyList()
-    val vRange = validItems.minOf { it.yMin.toFloat() }..validItems.maxOf { it.yMax.toFloat() }
+fun IPlotParameterScope.defaultYTicks(items: List<Float>): List<Pair<Number, String>> {
+    if (items.isEmpty()) return emptyList()
+
+    val vRange = items.minOf { it }..items.maxOf { it }
     val vHeight = vRange.run { endInclusive - start }
     val pHeight = plotSize.value.height / 60
     val tickHeight = vHeight / pHeight / scale.value
@@ -91,10 +93,10 @@ fun IPlotParameterScope.defaultYTicks(items: List<SeriesItem<*>>): List<Pair<Num
 private val decimalFormat = DecimalFormat("##,###.###")
 private fun format(value: Number): String = decimalFormat.format(value.toDouble())
 
-fun IPlotScope.defaultXTicks(items: List<SeriesItem<*>>): List<Pair<Number, String>> {
+fun IPlotScope.defaultXTicks(items: List<Float>): List<Pair<Number, String>> {
     if (items.isEmpty()) return emptyList()
 
-    val vRange = items.minOf { it.data.position.offset.x }..items.maxOf { it.data.position.offset.x }
+    val vRange = items.minOf { it }..items.maxOf { it }
     val vWidth = vRange.run { endInclusive - start }
     val tickWidth = vWidth / 5 / scale.value / widthFactor.value
     if (tickWidth.isInfinite() || tickWidth.isNaN()) return emptyList()

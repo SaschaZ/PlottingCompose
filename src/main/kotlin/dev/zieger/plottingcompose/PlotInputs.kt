@@ -30,7 +30,7 @@ fun Modifier.plotInputs(scope: IPlotParameterScope): Modifier = scope.run {
                     }
                     ScrollAction.SCALE -> {
                         if (!enableScale) return@mouseScrollFilter false
-                        val newScale = (scale.value + 1 / delta).coerceAtLeast(1f)
+                        val newScale = (scale.value + 0.25f / delta).coerceAtLeast(1f)
                         when {
                             newScale < scale.value -> {
                                 val diff = scale.value - newScale

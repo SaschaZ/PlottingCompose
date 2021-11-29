@@ -1,134 +1,53 @@
 @startuml
 'https://plantuml.com/sequence-diagram
 
-skinparam backgroundColor #000
-skinparam defaultFontColor #222
-skinparam defaultFontStyle bold
-skinparam defaultFontSize 20
-skinparam arrowColor #0af
-skinparam arrowThickness 2
-skinparam packageFontColor #0af
-skinparam packageFontSize 17
-skinparam packageBackgroundColor #bbb
-skinparam classBackgroundColor #bbb
-skinparam objectBackgroundColor #bbb
-skinparam componentBackgroundColor #bbb
-skinparam participantBackgroundColor #bbb
-skinparam packageBorderColor #0af
-skinparam classBorderColor #0af
-skinparam objectBorderColor #0af
-skinparam componentBorderColor #0af
-skinparam participantBorderColor #0af
-skinparam packageBorderThickness 2
-skinparam classBorderThickness 2
-skinparam objectBorderThickness 2
-skinparam componentBorderThickness 2
-skinparam participantBorderThickness 2
-skinparam titleFontSize 35
-skinparam titleFontStyle bold
-skinparam roundCorner 15
-
-skinparam stereotypeC<<data>> {
-  BackgroundColor #0AF
-}
-skinparam spotChar<<data>> D
-hide class <<data>> stereotype
-
-skinparam stereotypeC<<fragment>> {
-  BackgroundColor #0F8
-}
-skinparam spotChar<<fragment>> F
-hide class <<fragment>> stereotype
-
-skinparam stereotypeC<<view>> {
-  BackgroundColor #F4F
-}
-skinparam spotChar<<view>> V
-hide class <<view>> stereotype
-
-skinparam stereotypeC<<viewmodel>> {
-  BackgroundColor #FF0
-}
-skinparam spotChar<<viewmodel>> M
-hide class <<viewmodel>> stereotype
-
-skinparam stereotypeC<<repository>> {
-  BackgroundColor #FA3
-}
-skinparam spotChar<<repository>> R
-hide class <<repository>> stereotype
-
-skinparam stereotypeC<<sealed>> {
-  BackgroundColor #3B9
-}
-skinparam spotChar<<sealed>> S
-hide class <<sealed>> stereotype
-
-skinparam stereotypeC<<object>> {
-  BackgroundColor #FF0
-}
-skinparam spotChar<<object>> O
-hide class <<object>> stereotype
-
-skinparam stereotypeC<<enumeration>> {
-  BackgroundColor #090
-}
-skinparam spotChar<<enumeration>> E
-hide class <<enumeration>> stereotype
-
-hide empty members
-
-
-class PlotEntity <T: PlotItem> <<sealed>> {
-    val z: Int
-
-    {abstract} fun SinglePlot.draw(items: List<T>)
+class PlotStyle <<sealed>> {
+    val yIdx: List<Int>
+    val z: List<Int>
+    
+    fun IPlotDrawScope.draw(items: List<PlotSeriesItem>, requestedZ: Int, plot: SinglePlot)
 }
 
-class Line <T: PlotItem> <<sealed>> extends PlotEntity
-class Singles <T: PlotItem> <<sealed>> extends Line {
-    {abstract} fun SinglePlot.draw(item: T)}
+abstract class SinglePlotStyle {
+    {abstract} fun IPlotDrawScope.draw(x: Double, y: List<Double?>, requestedZ: Int, plot: SinglePlot)
 }
-class Dots <T: PlotItem> extends Singles
-class SimpleLine <T: PlotItem> extends Line
-class Dashes <T: PlotItem> extends Line
+PlotStyle +-- SinglePlotStyle
 
-class Area <T: PlotItem> <<sealed>> extends PlotEntity
-class Fill <T: PlotItem> extends Area
-
-class Group <T: PlotItem> extends PlotEntity {
-    val items: List<PlotEntity<T>>
+abstract class SeriesPlotStyle {
+    {abstract} fun IPlotDrawScope.draw(items: Map<Double, List<Double?>>, requestedZ: Int, plot: SinglePlot)
 }
+PlotStyle +--- SeriesPlotStyle
+
+class Dots extends SinglePlotStyle
+class CandleSticks extends SinglePlotStyle
+class Label extends SinglePlotStyle
+class Impulse extends SinglePlotStyle
+class SingleGroup extends SinglePlotStyle
+class Focusable extends SingleGroup
+
+class Line extends SeriesPlotStyle
+class Fill extends SeriesPlotStyle
+class SeriesGroup extends SeriesPlotStyle
 
 
-interface PlotItem {
-    val x: Float
-    val y: Float
+class PlotSeries <<data>> {
+    val items: List<PlotSeriesItem>
+    val styles: List<SeriesPlotStyle>
+    ---
+    val xRange: ClosedRange<Double>
+    val yRange: ClosedRange<Double>?
+}
+PlotSeries ---> SeriesPlotStyle
 
-    val xMin: Float
-    val xMax: Float
-    val yMin: Float
-    val yMax: Float
-
-    val offset: Offset
-
+class PlotSeriesItem <<data>> {
+    val x: Double
+    val y: Map<Int, Double?>
+    val styles: List<SinglePlotStyle>
+    ---
     var focused: Boolean
+    val yRange: ClosedRange<Double>?
 }
-
-class PlotSeries <T: PlotItem>  {
-    val name: String
-    val items: List<T>
-    val entities: List<PlotEntity<T>>
-}
-PlotSeries --> PlotItem
-PlotSeries --> PlotEntity
-
-class SinglePlot {
-    val allSeries: List<PlotSeries<*>>
-
-    fun draw()
-}
-SinglePlot <-- PlotEntity
-SinglePlot <--> PlotSeries
+PlotSeries --> PlotSeriesItem
+PlotSeriesItem --> SinglePlotStyle
 
 @enduml
