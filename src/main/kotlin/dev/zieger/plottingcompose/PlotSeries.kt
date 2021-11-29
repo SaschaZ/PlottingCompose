@@ -1,8 +1,8 @@
 package dev.zieger.plottingcompose
 
-class PlotSeries<T : PlotItem>(
-    val items: List<PlotSeriesItem<T>>,
-    vararg style: PlotStyle.SeriesPlotStyle<T>
+class PlotSeries<out E : Any, out T : PlotItem<E>>(
+    val items: List<PlotSeriesItem<E, T>>,
+    vararg style: PlotStyle.SeriesPlotStyle<E, T>
 ) {
     val xRange = items.minOf { it.item.x }..items.maxOf { it.item.x }
     val xWidth = xRange.run { endInclusive - start }
@@ -17,26 +17,30 @@ class PlotSeries<T : PlotItem>(
     }
 }
 
-val List<PlotSeries<*>>.xRange get() = minOf { it.xRange.start }..maxOf { it.xRange.endInclusive }
-val List<PlotSeries<*>>.xWidth get() = xRange.run { endInclusive - start }
-val List<PlotSeries<*>>.yRange get() = minOf { it.yRange.start }..maxOf { it.yRange.endInclusive }
-val List<PlotSeries<*>>.yHeight get() = yRange.run { endInclusive - start }
+val List<PlotSeries<*, *>>.xRange get() = minOf { it.xRange.start }..maxOf { it.xRange.endInclusive }
+val List<PlotSeries<*, *>>.xWidth get() = xRange.run { endInclusive - start }
+val List<PlotSeries<*, *>>.yRange get() = minOf { it.yRange.start }..maxOf { it.yRange.endInclusive }
+val List<PlotSeries<*, *>>.yHeight get() = yRange.run { endInclusive - start }
 
-fun <T : PlotItem> List<PlotSeriesItem<T>>.toSeries(vararg style: PlotStyle.SeriesPlotStyle<T>) =
+fun <E : Any, T : PlotItem<E>> List<PlotSeriesItem<E, T>>.toSeries(vararg style: PlotStyle.SeriesPlotStyle<E, T>) =
     PlotSeries(this, *style)
 
-open class PlotSeriesItem<out T : PlotItem>(
+open class PlotSeriesItem<out E : Any, out T : PlotItem<E>>(
     val item: T,
-    vararg style: PlotStyle.SinglePlotStyle<T>,
+    vararg style: PlotStyle.SinglePlotStyle<E, T>,
 ) {
 
     companion object {
 
-        operator fun invoke(x: Number, y: List<Number?>, vararg style: PlotStyle.SinglePlotStyle<SimplePlotItem>) =
+        operator fun invoke(
+            x: Number,
+            y: List<Number?>,
+            vararg style: PlotStyle.SinglePlotStyle<Unit, SimplePlotItem<Unit>>
+        ) =
             PlotSeriesItem(SimplePlotItem(x.toFloat(), *y.map { it?.toFloat() }.toTypedArray()), *style)
     }
 
-    lateinit var parent: PlotSeries<@UnsafeVariance T>
+    lateinit var parent: PlotSeries<@UnsafeVariance E, @UnsafeVariance T>
 
     val styles = style.toList()
     val z: List<Int> = styles.flatMap { it.z }

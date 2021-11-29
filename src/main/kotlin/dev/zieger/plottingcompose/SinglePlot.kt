@@ -88,7 +88,6 @@ data class SinglePlot(
                 val font = Font(null, fontSize)
                 return maxOf { (_, lbl) -> TextLine.make(lbl, font).width }
             }
-
             var fontSize = 30f
             do {
                 val diff = scope.plotYLabelWidth(scope).value - labelWidth(fontSize--)

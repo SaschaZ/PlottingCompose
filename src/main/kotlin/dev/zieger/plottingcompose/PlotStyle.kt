@@ -20,31 +20,35 @@ import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
 
-sealed class PlotStyle<out T : PlotItem> {
+sealed class PlotStyle<out E : Any, out T : PlotItem<E>> {
     abstract val z: List<Int>
 
-    fun IPlotDrawScope.draw(items: List<PlotSeriesItem<@UnsafeVariance T>>, requestedZ: Int, plot: SinglePlot) {
+    fun IPlotDrawScope.draw(
+        items: List<PlotSeriesItem<@UnsafeVariance E, @UnsafeVariance T>>,
+        requestedZ: Int,
+        plot: SinglePlot
+    ) {
         if (requestedZ !in z || items.isEmpty()) return
         val mapped = items.map { item -> item.item.map(plot) }
         if (mapped.isEmpty()) return
 
         when (this@PlotStyle) {
-            is SeriesPlotStyle<*> -> drawScene(mapped, requestedZ, plot)
-            is SinglePlotStyle<*> -> mapped.sortedBy { it.x }.forEach { item ->
+            is SeriesPlotStyle<*, *> -> drawScene(mapped, requestedZ, plot)
+            is SinglePlotStyle<*, *> -> mapped.sortedBy { it.x }.forEach { item ->
                 drawScene(item, requestedZ, plot)
             }
         }
     }
 
-    abstract class SeriesPlotStyle<out T : PlotItem>(override val z: List<Int> = listOf(0)) :
-        PlotStyle<T>() {
+    abstract class SeriesPlotStyle<out E : Any, out T : PlotItem<E>>(override val z: List<Int> = listOf(0)) :
+        PlotStyle<E, T>() {
 
         constructor(z: Int) : this(listOf(z))
 
         companion object {
-            object Empty : SeriesPlotStyle<PlotItem>(emptyList()) {
+            object Empty : SeriesPlotStyle<Unit, PlotItem<Unit>>(emptyList()) {
                 override fun IPlotDrawScope.drawScene(
-                    items: List<PlotItem>,
+                    items: List<PlotItem<Unit>>,
                     requestedZ: Int,
                     plot: SinglePlot
                 ) = Unit
@@ -54,15 +58,15 @@ sealed class PlotStyle<out T : PlotItem> {
         abstract fun IPlotDrawScope.drawScene(items: List<@UnsafeVariance T>, requestedZ: Int, plot: SinglePlot)
     }
 
-    abstract class SinglePlotStyle<out T : PlotItem>(override val z: List<Int> = listOf(0)) :
-        PlotStyle<T>() {
+    abstract class SinglePlotStyle<out E : Any, out T : PlotItem<E>>(override val z: List<Int> = listOf(0)) :
+        PlotStyle<E, T>() {
 
         constructor(z: Int) : this(listOf(z))
 
         companion object {
-            object Empty : SinglePlotStyle<PlotItem>(emptyList()) {
+            object Empty : SinglePlotStyle<Unit, PlotItem<Unit>>(emptyList()) {
                 override fun IPlotDrawScope.drawScene(
-                    item: PlotItem,
+                    item: PlotItem<Unit>,
                     requestedZ: Int,
                     plot: SinglePlot
                 ) = Unit
@@ -77,8 +81,8 @@ sealed class PlotStyle<out T : PlotItem> {
     }
 }
 
-open class SingleGroup<out T : PlotItem>(vararg styles: SinglePlotStyle<T>) :
-    SinglePlotStyle<T>(styles.flatMap { it.z }.distinct()) {
+open class SingleGroup<out E : Any, out T : PlotItem<E>>(vararg styles: SinglePlotStyle<E, T>) :
+    SinglePlotStyle<E, T>(styles.flatMap { it.z }.distinct()) {
 
     private val styles = styles.toList()
 
@@ -94,10 +98,10 @@ open class SingleGroup<out T : PlotItem>(vararg styles: SinglePlotStyle<T>) :
     }
 }
 
-open class SingleFocusable<out T : PlotItem>(
-    val unfocused: SinglePlotStyle<T>,
-    val focused: SinglePlotStyle<T>
-) : SingleGroup<T>(*arrayOf(unfocused, focused)) {
+open class SingleFocusable<out E : Any, out T : PlotItem<E>>(
+    val unfocused: SinglePlotStyle<E, T>,
+    val focused: SinglePlotStyle<E, T>
+) : SingleGroup<E, T>(*arrayOf(unfocused, focused)) {
     override fun IPlotDrawScope.drawScene(
         item: @UnsafeVariance T,
         requestedZ: Int,
@@ -112,12 +116,12 @@ open class SingleFocusable<out T : PlotItem>(
     }
 }
 
-open class Dot<out T : PlotItem>(
+open class Dot<out E : Any, out T : PlotItem<E>>(
     val color: Color = Color.Black,
     val width: Float = 1f,
     val strokeWidth: Float? = null,
     z: Int = 0
-) : SinglePlotStyle<T>(listOf(z)) {
+) : SinglePlotStyle<E, T>(listOf(z)) {
 
     override fun IPlotDrawScope.drawScene(
         item: @UnsafeVariance T,
@@ -137,12 +141,12 @@ open class Dot<out T : PlotItem>(
     }
 }
 
-open class Line<out T : PlotItem>(
+open class Line<out E : Any, out T : PlotItem<E>>(
     val color: Color = Color.Black,
     val width: Float = 1f,
     z: Int = 1,
     private val y: (T) -> Float? = { it.y.values.filterNotNull().firstOrNull() }
-) : SeriesPlotStyle<T>(z) {
+) : SeriesPlotStyle<E, T>(z) {
 
     override fun IPlotDrawScope.drawScene(items: List<@UnsafeVariance T>, requestedZ: Int, plot: SinglePlot) {
         if (items.isEmpty() || requestedZ !in z) return
@@ -159,11 +163,11 @@ open class Line<out T : PlotItem>(
     }
 }
 
-class FillBetween<out T : PlotItem>(
+class FillBetween<out E : Any, out T : PlotItem<E>>(
     private val color: Color = Color.Cyan.copy(alpha = 0.66f),
     z: Int = 1,
     private val between: (T) -> Pair<Float, Float>?
-) : SeriesPlotStyle<T>(z) {
+) : SeriesPlotStyle<E, T>(z) {
     override fun IPlotDrawScope.drawScene(items: List<@UnsafeVariance T>, requestedZ: Int, plot: SinglePlot) {
         val offsets = items.mapNotNull { between(it)?.run { Offset(it.x, first) to Offset(it.x, second) } }
         val path = Path().apply {
@@ -184,11 +188,11 @@ class FillBetween<out T : PlotItem>(
     }
 }
 
-class Fill<out T : PlotItem>(
+class Fill<out E : Any, out T : PlotItem<E>>(
     private val color: Color = Color.Black.copy(alpha = 0.25f),
     private val upWards: Boolean = false,
     z: Int = 0
-) : SeriesPlotStyle<T>(listOf(z)) {
+) : SeriesPlotStyle<E, T>(listOf(z)) {
 
     override fun IPlotDrawScope.drawScene(items: List<@UnsafeVariance T>, requestedZ: Int, plot: SinglePlot) {
         val checked = items.map { item -> item.x to item.y.toList().mapNotNull { (i, y) -> y?.let { v -> i to v } } }
@@ -205,11 +209,11 @@ class Fill<out T : PlotItem>(
     }
 }
 
-class Impulses<out T : PlotItem>(
+class Impulses<out E : Any, out T : PlotItem<E>>(
     private val color: Color = Color.Cyan,
     z: Int = 0,
     private val impulse: (T) -> Float? = { it.y.values.filterNotNull().firstOrNull() }
-) : SinglePlotStyle<T>(z) {
+) : SinglePlotStyle<E, T>(z) {
     override fun IPlotDrawScope.drawScene(item: @UnsafeVariance T, requestedZ: Int, plot: SinglePlot) {
         impulse(item)?.let { Offset(item.x, it) }?.let { offset ->
             val size = Size(50f * plot.widthFactor, offset.y)
@@ -229,7 +233,7 @@ open class CandleSticks(
     private val lineColor: Color = Color.Black,
     private val lineWidth: Float = 1f,
     z: Int = 0
-) : SinglePlotStyle<Ohcl>(listOf(z)) {
+) : SinglePlotStyle<Unit, Ohcl>(listOf(z)) {
 
     override fun IPlotDrawScope.drawScene(
         item: Ohcl,
@@ -274,7 +278,7 @@ open class CandleSticks(
     }
 }
 
-data class Label<out T : PlotItem>(
+data class Label<out E : Any, out T : PlotItem<E>>(
     val fontSize: Float = 18f,
     val contentColor: Color = Color.Black,
     val backgroundColor: Color = Color.White,
@@ -284,7 +288,7 @@ data class Label<out T : PlotItem>(
     val fontScale: Float = 1f,
     val padding: Float = 5f,
     val content: (@UnsafeVariance T) -> String
-) : SinglePlotStyle<T>(listOf(100)) {
+) : SinglePlotStyle<E, T>(listOf(100)) {
 
     override fun IPlotDrawScope.drawScene(item: @UnsafeVariance T, requestedZ: Int, plot: SinglePlot) {
         if (!item.hasFocus) return

@@ -96,7 +96,7 @@ private fun Plot(
     plotScope: IPlotScope,
     block: PlotHandler.() -> Unit
 ): PlotHandler = PlotParameterScope(plotScope, parameter, colors).run {
-    val allSeries = remember { mutableStateListOf<PlotSeries<*>>() }
+    val allSeries = remember { mutableStateListOf<PlotSeries<*, *>>() }
     val handler = remember {
         PlotHandler({ series ->
             if (series !in allSeries || allSeries.size != 1) {
@@ -148,7 +148,7 @@ private operator fun IntSize.div(fl: Float): Offset {
     return Offset((width / fl), (height / fl))
 }
 
-fun SinglePlot.applyTranslationOffset(allSeries: SnapshotStateList<PlotSeries<*>>) = scope.run {
+fun SinglePlot.applyTranslationOffset(allSeries: SnapshotStateList<PlotSeries<*, *>>) = scope.run {
     if (plotSize.value.width == 0 || plotSize.value.height == 0) return
 
     val widthFactor = allSeries.xWidth / plot.height
@@ -180,7 +180,7 @@ private fun IPlotDrawScope.draw() {
 }
 
 private fun SinglePlot.drawPlot(
-    allSeries: List<PlotSeries<*>>
+    allSeries: List<PlotSeries<*, *>>
 ) = scope.run {
     clipRect(main) {
         translate(

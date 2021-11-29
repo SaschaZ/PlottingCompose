@@ -2,9 +2,10 @@ package dev.zieger.plottingcompose
 
 import androidx.compose.ui.geometry.Offset
 
-interface PlotItem {
+interface PlotItem<out T : Any> {
     val x: Float
     val y: Map<Int, Float?>
+    val extra: T
 
     val offset: Offset? get() = y.values.firstOrNull()?.let { Offset(x, it) }
 
@@ -13,20 +14,28 @@ interface PlotItem {
 
     var hasFocus: Boolean
 
-    fun map(plot: SinglePlot): PlotItem = copy(
+    fun map(plot: SinglePlot): PlotItem<T> = copy(
         plot.toScene(this@PlotItem.x, 0f).x,
         this@PlotItem.y.entries.associate { (idx, value) -> idx to value?.let { v -> plot.toScene(0f, v).y } },
-        hasFocus
+        extra, hasFocus
     )
 
-    fun copy(x: Float = this.x, y: Map<Int, Float?> = this.y, hasFocus: Boolean): PlotItem
+    fun copy(
+        x: Float = this.x, y: Map<Int, Float?> = this.y,
+        extra: @UnsafeVariance T = this.extra, hasFocus: Boolean
+    ): PlotItem<T>
 }
 
-class SimplePlotItem(override val x: Float, vararg y: Float?) : PlotItem {
+class SimplePlotItem<out T : Any>(override val x: Float, vararg y: Float?, override val extra: T) : PlotItem<T> {
+
+    companion object {
+        operator fun invoke(x: Float, vararg y: Float?): SimplePlotItem<Unit> = SimplePlotItem(x, *y, extra = Unit)
+    }
+
     override val y: Map<Int, Float?> = y.mapIndexed { idx, v -> idx to v }.toMap()
     override var hasFocus: Boolean = false
 
-    override fun copy(x: Float, y: Map<Int, Float?>, hasFocus: Boolean) = SimplePlotItem(x, *y.values.toTypedArray())
-        .apply { this.hasFocus = hasFocus }
+    override fun copy(x: Float, y: Map<Int, Float?>, extra: @UnsafeVariance T, hasFocus: Boolean) =
+        SimplePlotItem(x, *y.values.toTypedArray(), extra = extra).apply { this.hasFocus = hasFocus }
 }
 

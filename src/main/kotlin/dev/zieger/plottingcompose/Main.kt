@@ -36,7 +36,7 @@ fun main() = application {
             var lastClose: Float? = null
             PlotSeries((0..150).map { idx ->
                 OhclItem(randomOhcl(idx.toLong(), lastClose).also { c -> lastClose = c.close },
-                    SingleFocusable<Ohcl>(CandleSticks(), CandleSticks(Color.Yellow, Color.Blue)),
+                    SingleFocusable(CandleSticks(), CandleSticks(Color.Yellow, Color.Blue)),
                     Label { "${it.time}\n${it.volume}" })
             })
         }
@@ -44,7 +44,7 @@ fun main() = application {
             PlotSeries(
                 candles.items.map {
                     PlotSeriesItem(
-                        SimplePlotItem(it.item.time.toFloat(), it.item.volume.toFloat()),
+                        SimplePlotItem(it.item.time.toFloat(), it.item.volume.toFloat(), extra = Unit),
                         Impulses(if (it.item.open <= it.item.close) Color.Green else Color.Red)
                     )
                 }
