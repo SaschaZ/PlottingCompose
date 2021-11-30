@@ -1,6 +1,6 @@
 package dev.zieger.plottingcompose
 
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -36,8 +36,11 @@ fun main() = application {
             var lastClose: Float? = null
             PlotSeries((0..150).map { idx ->
                 OhclItem(randomOhcl(idx.toLong(), lastClose).also { c -> lastClose = c.close },
-                    SingleFocusable(CandleSticks(), CandleSticks(Color.Yellow, Color.Blue)),
-                    Label { "${it.time}\n${it.volume}" })
+                    SingleFocusable(
+                        CandleSticks(lineColor = Color.White),
+                        CandleSticks(Color.Yellow, Color.Blue, lineColor = Color.White)
+                    ),
+                    Label { "${it.extra.time}\n${it.volume}" })
             })
         }
         val volume = remember {
@@ -128,24 +131,26 @@ fun main() = application {
             false
         }, undecorated = true) {
             MultiPlot(
-                Modifier.padding(vertical = 8.dp),
+                Modifier.background(Color.Black),
                 parameter = PlotParameter(
                     focusAxis = Axis.X,
-                    scrollAction = when {
+                    scrollAction = ScrollAction.WIDTH_FACTOR/*when {
                         ctrlPressed.value && !shiftPressed.value && !altPressed.value -> ScrollAction.WIDTH_FACTOR
                         !ctrlPressed.value && shiftPressed.value && !altPressed.value -> ScrollAction.X_TRANSLATION
                         else -> ScrollAction.SCALE
-                    },
-                    verticalPadding = { 0.dp }, //verticalPlotPadding = { 0.dp },
-                    horizontalPadding = { 8.dp },// horizontalPlotPadding = { 0.dp },
+                    }*/,
+                    verticalPadding = { 0.dp }, verticalPlotPadding = { 0.dp },
+                    horizontalPadding = { 0.dp }, horizontalPlotPadding = { 0.dp },
 //                    drawYLabels = false, drawXLabels = false
-                )
+                    plotYLabelWidth = { plotSize.value.width.dp * 0.075f }
+                ),
+                colors = PlotColors(Color.Black, Color.White, Color.DarkGray, Color.White, Color.White)
             ) {
-                plot(0.75f, it.copy(drawXLabels = false)) {
+                plot(0.85f, it.copy(drawXLabels = false)) {
                     set(candles)
                     add(bb)
                 }
-                plot(0.25f) {
+                plot(0.15f, it.copy(verticalPlotPadding = { 0.dp })) {
                     set(volume)
                 }
             }

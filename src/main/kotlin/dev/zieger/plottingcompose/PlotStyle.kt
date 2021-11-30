@@ -216,9 +216,9 @@ class Impulses<out E : Any, out T : PlotItem<E>>(
 ) : SinglePlotStyle<E, T>(z) {
     override fun IPlotDrawScope.drawScene(item: @UnsafeVariance T, requestedZ: Int, plot: SinglePlot) {
         impulse(item)?.let { Offset(item.x, it) }?.let { offset ->
-            val size = Size(50f * plot.widthFactor, offset.y)
+            val size = Size(40 * plot.widthFactor * widthFactor.value, offset.y)
             if (size.width < 0 || size.height < 0) return
-            val topLeft = offset.copy(x = offset.x - size.width / 2, y = plot.plot.height - offset.y)
+            val topLeft = offset.copy(x = offset.x - size.width / 2 * plot.widthFactor, y = plot.plot.height - offset.y)
             drawRect(color, topLeft, size, color.alpha, Fill)
         }
     }
@@ -233,7 +233,7 @@ open class CandleSticks(
     private val lineColor: Color = Color.Black,
     private val lineWidth: Float = 1f,
     z: Int = 0
-) : SinglePlotStyle<Unit, Ohcl>(listOf(z)) {
+) : SinglePlotStyle<Ohcl, Ohcl>(listOf(z)) {
 
     override fun IPlotDrawScope.drawScene(
         item: Ohcl,
@@ -241,7 +241,6 @@ open class CandleSticks(
         plot: SinglePlot
     ) {
         val wF = plot.widthFactor
-        val hF = plot.heightFactor
 
         val bodySize = Size(40 * wF * widthFactor.value, (item.open - item.close).absoluteValue)
         val topLeft = Offset((item.time - bodySize.width / 2 * wF), min(item.open, item.close))

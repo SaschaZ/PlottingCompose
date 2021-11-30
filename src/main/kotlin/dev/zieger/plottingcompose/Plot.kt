@@ -60,6 +60,14 @@ private fun List<PlotHandler>.syncPlots() {
     val translation = remember { mutableStateOf(Offset.Zero) }
     forEach { it.translateListener { t -> translation.value = t } }
     forEach { it.translate(translation.value) }
+
+    val xStretch = remember { mutableStateOf(1f) }
+    forEach { it.xStretchListener { xS -> xStretch.value = xS } }
+    forEach { it.xStretch(xStretch.value) }
+
+    val xStretchCenter = remember { mutableStateOf(Offset.Zero) }
+    forEach { it.xStretchCenterListener { xS -> xStretchCenter.value = xS } }
+    forEach { it.xStretchCenter(xStretchCenter.value) }
 }
 
 data class MultiPlotHandler(
@@ -127,6 +135,10 @@ private fun Plot(
             },
             { translation.value = it },
             { listener -> translationListener.add(listener) },
+            { widthFactor.value = it },
+            { listener -> xStretchListener.add(listener) },
+            { widthFactorCenter.value = it },
+            { listener -> xStretchCenterListener.add(listener) },
             {
                 scale.value = 1f
                 translation.value = Offset.Zero
@@ -260,8 +272,7 @@ private fun SinglePlot.drawGrid() = scope.run {
                             x.toFloat() + ((xTicks.getOrNull(idx + 1)?.first?.toFloat()
                                 ?: x.toFloat()) - x.toFloat()) / 2
                         )
-                    }
-                        .map { it * this@drawGrid.widthFactor * widthFactor.value + horizontalPadding().value + horizontalPlotPadding().value }
+                    }.map { toScene(Offset(it, 0f)).x }
                         .forEach { x ->
                             drawLine(
                                 grid,
@@ -272,7 +283,7 @@ private fun SinglePlot.drawGrid() = scope.run {
                             )
                         }
 
-                    yTicks.map { plotSize.value.height - it.first.toFloat() * this@drawGrid.heightFactor - verticalPadding().value - verticalPlotPadding().value - xLabel.height }
+                    yTicks.map { toScene(Offset(0f, it.first.toFloat())).y }
                         .forEach { y ->
                             drawLine(
                                 grid,
@@ -319,10 +330,7 @@ private fun SinglePlot.drawYAxis() = scope.run {
                     val x =
                         plotSize.value.width - horizontalPadding().value - yLabel.width + plotTickLength().value / 2
                     yTicks.forEach { (y, str) ->
-                        val yScene = plotSize.value.height - y.toFloat() * heightFactor -
-                                verticalPadding().value - verticalPlotPadding().value -
-                                xLabel.height
-
+                        val yScene = toScene(Offset(0f, y.toFloat())).y
                         if (drawYTicks)
                             drawLine(
                                 axisTicks,
@@ -363,15 +371,14 @@ private fun SinglePlot.drawXAxis() = scope.run {
                 this@run.scaleCenter.value - this@run.translationOffset.value
             ) {
                 this@run.run run2@{
-                    val y = xTopTicks.top + plotTickLength().value / 2
                     plotXTicks(allX).forEach { (x, str) ->
                         val xScene =
                             x.toFloat() * this@drawXAxis.widthFactor * widthFactor.value + xLabel.left + horizontalPlotPadding().value
                         if (drawXTicks)
                             drawLine(
                                 axisTicks,
-                                Offset(xScene, verticalPlotPadding().value - plotTickLength().value / 2f),
-                                Offset(xScene, verticalPlotPadding().value + plotTickLength().value / 2f)
+                                Offset(xScene, xTopTicks.top),
+                                Offset(xScene, xTopTicks.bottom)
                             )
                     }
                 }

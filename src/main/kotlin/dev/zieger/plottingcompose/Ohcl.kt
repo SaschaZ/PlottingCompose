@@ -3,7 +3,7 @@ package dev.zieger.plottingcompose
 import kotlin.math.absoluteValue
 import kotlin.math.min
 
-interface Ohcl : PlotItem<Unit> {
+interface Ohcl : PlotItem<Ohcl> {
     val time: Long
     val open: Float
     val high: Float
@@ -25,8 +25,8 @@ interface Ohcl : PlotItem<Unit> {
 
 class OhclItem(
     ohcl: Ohcl,
-    vararg style: PlotStyle.SinglePlotStyle<Unit, Ohcl> = arrayOf(CandleSticks()),
-) : PlotSeriesItem<Unit, Ohcl>(ohcl, *style) {
+    vararg style: PlotStyle.SinglePlotStyle<Ohcl, Ohcl> = arrayOf(CandleSticks()),
+) : PlotSeriesItem<Ohcl, Ohcl>(ohcl, *style) {
     constructor(
         time: Long,
         open: Float,
@@ -49,9 +49,9 @@ data class OhclValue(
     override val volume: Long
 ) : Ohcl {
     override var hasFocus: Boolean = false
-    override val extra: Unit = Unit
+    override val extra: Ohcl = this
 
-    override fun copy(x: Float, y: Map<Int, Float?>, extra: Unit, hasFocus: Boolean) = OhclValue(
+    override fun copy(x: Float, y: Map<Int, Float?>, extra: Ohcl, hasFocus: Boolean) = OhclValue(
         x.toLong(), y[0]!!, y[1]!!, y[2]!!, y[3]!!, volume
     ).apply { this.hasFocus = hasFocus }
 }

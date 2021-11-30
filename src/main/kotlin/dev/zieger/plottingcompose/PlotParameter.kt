@@ -61,7 +61,7 @@ data class PlotParameter(
     },
     override val plotTickLength: IPlotScope.() -> Dp = { 10.dp },
     override val plotTickWidth: IPlotScope.() -> Float = { 1f },
-    override val plotYLabelWidth: IPlotScope.() -> Dp = { plotSize.value.width.dp * 0.15f },
+    override val plotYLabelWidth: IPlotScope.() -> Dp = { plotSize.value.width.dp * 0.1f },
     override val plotXLabelHeight: IPlotScope.() -> Dp = { plotSize.value.height.dp * 0.15f },
     override val drawYLabels: Boolean = true,
     override val drawXLabels: Boolean = true,
@@ -80,7 +80,7 @@ fun IPlotParameterScope.defaultYTicks(items: List<Float>): List<Pair<Number, Str
 
     val vRange = items.minOf { it }..items.maxOf { it }
     val vHeight = vRange.run { endInclusive - start }
-    val pHeight = plotSize.value.height / 60
+    val pHeight = plotSize.value.height / 30
     val tickHeight = vHeight / pHeight / scale.value
     if (tickHeight.isInfinite() || tickHeight.isNaN()) return emptyList()
 
@@ -98,7 +98,7 @@ fun IPlotScope.defaultXTicks(items: List<Float>): List<Pair<Number, String>> {
 
     val vRange = items.minOf { it }..items.maxOf { it }
     val vWidth = vRange.run { endInclusive - start }
-    val tickWidth = vWidth / 5 / scale.value / widthFactor.value
+    val tickWidth = vWidth / 7 / scale.value / widthFactor.value
     if (tickWidth.isInfinite() || tickWidth.isNaN()) return emptyList()
 
     val tickWidthBd = tickWidth.toBigDecimal()

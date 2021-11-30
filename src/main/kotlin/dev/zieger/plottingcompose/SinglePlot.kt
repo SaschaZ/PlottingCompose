@@ -66,7 +66,7 @@ data class SinglePlot(
             }
             val xTopTicks = scope.run {
                 val left = main.left
-                val top = main.top - plotTickLength().value / 2
+                val top = main.top
                 val right = main.right
                 val bottom = main.top + plotTickLength().value / 2
                 if (left > right || top > bottom) return null
@@ -87,7 +87,8 @@ data class SinglePlot(
             if (isEmpty()) return 0f
             fun labelWidth(fontSize: Float): Float {
                 val font = Font(null, fontSize)
-                return maxOf { (_, lbl) -> TextLine.make(lbl, font).width }
+                return maxByOrNull { (_, lbl) -> lbl.length }
+                    ?.let { (_, lbl) -> TextLine.make(lbl, font).width } ?: 0f
             }
             var fontSize = 30f
             do {
@@ -100,7 +101,7 @@ data class SinglePlot(
             if (isEmpty()) return 0f
             fun labelHeight(fontSize: Float): Float {
                 val font = Font(null, fontSize)
-                return maxOf { (_, lbl) -> TextLine.make(lbl, font).height }
+                return TextLine.make(get(size / 2).second, font).height
             }
 
             var fontSize = 30f
