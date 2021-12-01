@@ -29,7 +29,7 @@ sealed class PlotStyle<out E : Any, out T : PlotItem<E>> {
         plot: SinglePlot
     ) {
         if (requestedZ !in z || items.isEmpty()) return
-        val mapped = items.map { item -> item.item.map(plot) }
+        val mapped = items.map { item -> item.item }
         if (mapped.isEmpty()) return
 
         when (this@PlotStyle) {
@@ -129,7 +129,7 @@ open class Dot<out E : Any, out T : PlotItem<E>>(
     ) {
         if (requestedZ !in z) return
 
-        item.y.values.firstOrNull()?.toFloat()?.let {
+        item.map(plot).y.values.firstOrNull()?.toFloat()?.let {
             drawCircle(
                 color,
                 width / 2,
@@ -141,17 +141,17 @@ open class Dot<out E : Any, out T : PlotItem<E>>(
 }
 
 open class Line<out E : Any, out T : PlotItem<E>>(
-    val color: Color = Color.Black,
-    val width: Float = 1f,
+    private val color: Color = Color.Black,
+    private val width: Float = 1f,
     z: Int = 1,
-    private val y: (T) -> Float? = { it.y.values.filterNotNull().firstOrNull() }
+    private val y: (PlotItem<E>) -> Float? = { it.y.values.filterNotNull().firstOrNull() }
 ) : SeriesPlotStyle<E, T>(z) {
 
     override fun IPlotDrawScope.drawScene(items: List<@UnsafeVariance T>, requestedZ: Int, plot: SinglePlot) {
         if (items.isEmpty() || requestedZ !in z) return
 
         drawPath(Path().apply {
-            items.mapNotNull { y(it)?.let { it2 -> it.x to it2 } }
+            items.map { it.map(plot) }.mapNotNull { y(it)?.let { it2 -> it.x to it2 } }
                 .forEach { (x, y) ->
                     when {
                         isEmpty -> moveTo(x, y)
@@ -165,10 +165,11 @@ open class Line<out E : Any, out T : PlotItem<E>>(
 class FillBetween<out E : Any, out T : PlotItem<E>>(
     private val color: Color = Color.Cyan.copy(alpha = 0.66f),
     z: Int = 1,
-    private val between: (T) -> Pair<Float, Float>?
+    private val between: (PlotItem<E>) -> Pair<Float, Float>?
 ) : SeriesPlotStyle<E, T>(z) {
     override fun IPlotDrawScope.drawScene(items: List<@UnsafeVariance T>, requestedZ: Int, plot: SinglePlot) {
-        val offsets = items.mapNotNull { between(it)?.run { Offset(it.x, first) to Offset(it.x, second) } }
+        val offsets =
+            items.map { it.map(plot) }.mapNotNull { between(it)?.run { Offset(it.x, first) to Offset(it.x, second) } }
         val path = Path().apply {
             offsets.forEach { (top, _) ->
                 when {
@@ -194,7 +195,8 @@ class Fill<out E : Any, out T : PlotItem<E>>(
 ) : SeriesPlotStyle<E, T>(listOf(z)) {
 
     override fun IPlotDrawScope.drawScene(items: List<@UnsafeVariance T>, requestedZ: Int, plot: SinglePlot) {
-        val checked = items.map { item -> item.x to item.y.toList().mapNotNull { (i, y) -> y?.let { v -> i to v } } }
+        val checked = items.map { it.map(plot) }
+            .map { item -> item.x to item.y.toList().mapNotNull { (i, y) -> y?.let { v -> i to v } } }
         if (checked.isEmpty()) return
 
         val path = Path()
@@ -214,7 +216,7 @@ class Impulses<out E : Any, out T : PlotItem<E>>(
     private val impulse: (T) -> Float? = { it.y.values.filterNotNull().firstOrNull() }
 ) : SinglePlotStyle<E, T>(z) {
     override fun IPlotDrawScope.drawScene(item: @UnsafeVariance T, requestedZ: Int, plot: SinglePlot) {
-        impulse(item)?.let { Offset(item.x, it) }?.let { offset ->
+        impulse(item)?.let { plot.toScene(Offset(item.x, it)) }?.let { offset ->
             val size = Size(40 * plot.widthFactor * widthFactor.value, offset.y)
             if (size.width < 0 || size.height < 0) return
             val topLeft = offset.copy(x = offset.x - size.width / 2 * plot.widthFactor, y = plot.plot.height - offset.y)
@@ -241,10 +243,14 @@ open class CandleSticks(
     ) {
         val wF = plot.widthFactor
 
-        val bodySize = Size(40 * wF * widthFactor.value, (item.open - item.close).absoluteValue)
-        val topLeft = Offset((item.time - bodySize.width / 2 * wF), min(item.open, item.close))
+        val mappedItem = item.map(plot)
+        val bodySize = Size(40 * wF * widthFactor.value, (mappedItem.extra.open - mappedItem.extra.close).absoluteValue)
+        val topLeft = Offset(
+            (mappedItem.extra.time - bodySize.width / 2 * wF),
+            min(mappedItem.extra.open, mappedItem.extra.close)
+        )
 
-        val color = if (item.open <= item.close) positiveColor else negativeColor
+        val color = if (mappedItem.extra.open <= mappedItem.extra.close) positiveColor else negativeColor
         drawRect(
             color,
             topLeft,
@@ -263,14 +269,14 @@ open class CandleSticks(
         drawLine(
             lineColor,
             topMid,
-            topMid.copy(y = item.high),
+            topMid.copy(y = mappedItem.extra.high),
             lineWidth / scale.value, alpha = lineColor.alpha
         )
-        val bottomMid = Offset(topMid.x, max(item.open, item.close))
+        val bottomMid = Offset(topMid.x, max(mappedItem.extra.open, mappedItem.extra.close))
         drawLine(
             lineColor,
             bottomMid,
-            bottomMid.copy(y = item.low),
+            bottomMid.copy(y = mappedItem.extra.low),
             lineWidth / scale.value, alpha = lineColor.alpha
         )
     }
@@ -328,7 +334,7 @@ data class Label<out E : Any, out T : PlotItem<E>>(
         val position =
             if (mouseIsPositionSource) mousePosition.value ?: return else Offset(item.x, item.y.values.first()!!)
         val (startTop, size) = position(c, position, plot).let {
-            if (mouseIsPositionSource) mappedOffset(it) else it
+            if (mouseIsPositionSource) mappedOffset(it) else plot.toScene(it)
         } to size(c)
 
         drawRoundRect(

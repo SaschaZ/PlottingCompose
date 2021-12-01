@@ -56,7 +56,7 @@ fun main() = application {
                         CandleSticks(lineColor = Color.White),
                         CandleSticks(Color.Yellow, Color.Blue, lineColor = Color.White)
                     ),
-                    Label<Ohcl, Ohcl> { "${it.extra.time}\n${it.volume}" }.focused(),
+                    Label<Ohcl, Ohcl> { "${it.extra.time}\n${it.close}$" }.focused(),
                     Label<Ohcl, Ohcl>(borderColor = Color.Transparent,
                         borderRoundCorner = 0f,
                         borderWidth = 0f,
