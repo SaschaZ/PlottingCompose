@@ -2,6 +2,7 @@ package dev.zieger.plottingcompose
 
 import androidx.compose.ui.geometry.Offset
 
+
 interface PlotItem<out T : Any> {
     val x: Float
     val y: Map<Int, Float?>

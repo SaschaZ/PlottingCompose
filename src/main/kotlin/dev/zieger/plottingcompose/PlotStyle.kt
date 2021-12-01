@@ -45,14 +45,12 @@ sealed class PlotStyle<out E : Any, out T : PlotItem<E>> {
 
         constructor(z: Int) : this(listOf(z))
 
-        companion object {
-            object Empty : SeriesPlotStyle<Unit, PlotItem<Unit>>(emptyList()) {
-                override fun IPlotDrawScope.drawScene(
-                    items: List<PlotItem<Unit>>,
-                    requestedZ: Int,
-                    plot: SinglePlot
-                ) = Unit
-            }
+        class Empty<out E : Any, out T : PlotItem<E>> : SeriesPlotStyle<E, T>(emptyList()) {
+            override fun IPlotDrawScope.drawScene(
+                items: List<@UnsafeVariance T>,
+                requestedZ: Int,
+                plot: SinglePlot
+            ) = Unit
         }
 
         abstract fun IPlotDrawScope.drawScene(items: List<@UnsafeVariance T>, requestedZ: Int, plot: SinglePlot)
@@ -63,14 +61,12 @@ sealed class PlotStyle<out E : Any, out T : PlotItem<E>> {
 
         constructor(z: Int) : this(listOf(z))
 
-        companion object {
-            object Empty : SinglePlotStyle<Unit, PlotItem<Unit>>(emptyList()) {
-                override fun IPlotDrawScope.drawScene(
-                    item: PlotItem<Unit>,
-                    requestedZ: Int,
-                    plot: SinglePlot
-                ) = Unit
-            }
+        class Empty<out E : Any, out T : PlotItem<E>> : SinglePlotStyle<E, T>(emptyList()) {
+            override fun IPlotDrawScope.drawScene(
+                item: @UnsafeVariance T,
+                requestedZ: Int,
+                plot: SinglePlot
+            ) = Unit
         }
 
         abstract fun IPlotDrawScope.drawScene(
@@ -115,6 +111,9 @@ open class SingleFocusable<out E : Any, out T : PlotItem<E>>(
         }
     }
 }
+
+fun <E : Any, T : PlotItem<E>, SP : SinglePlotStyle<E, T>> SP.focused() =
+    SingleFocusable(SinglePlotStyle.Empty(), this)
 
 open class Dot<out E : Any, out T : PlotItem<E>>(
     val color: Color = Color.Black,
@@ -286,39 +285,51 @@ data class Label<out E : Any, out T : PlotItem<E>>(
     val borderRoundCorner: Float = 5f,
     val fontScale: Float = 1f,
     val padding: Float = 5f,
-    val content: (@UnsafeVariance T) -> String
-) : SinglePlotStyle<E, T>(listOf(100)) {
-
-    override fun IPlotDrawScope.drawScene(item: @UnsafeVariance T, requestedZ: Int, plot: SinglePlot) {
-        if (!item.hasFocus) return
-        val c = content(item)
+    val mouseIsPositionSource: Boolean = true,
+    val position: IPlotDrawScope.(String, Offset, SinglePlot) -> Offset = { c, pos, plot ->
         val font = Font(null, fontSize)
         val lines = c.split('\n').map { it to TextLine.make(it, font) }
         val labelWidth = lines.maxOf { it.second.width } / scale.value
         val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value
         val plotRect = plot.main
-
-        val position = mousePosition.value ?: Offset(item.x, item.y.values.first()!!)
-
-        val (startTop, size) = when {
-            position.x < plotRect.left + plotRect.width * 0.5f -> Offset(
-                position.x - padding,
-                position.y - padding
+        when {
+            pos.x < plotRect.left + plotRect.width * 0.5f -> Offset(
+                pos.x - padding,
+                pos.y - padding
             )
             else -> Offset(
-                position.x - labelWidth * scale.value - padding,
-                position.y - padding
+                pos.x - labelWidth * scale.value - padding,
+                pos.y - padding
             )
         }.let {
             when {
-                position.y > plotRect.bottom - plotRect.height * 0.5f ->
+                pos.y > plotRect.bottom - plotRect.height * 0.5f ->
                     it.copy(y = it.y - labelHeight * scale.value * 2.05f)
                 else ->
                     it.copy(y = it.y + labelHeight * scale.value * 1.2f)
             }
-        }.let {
-            mappedOffset(it)
-        } to Size(labelWidth + padding * 2 / scale.value, labelHeight + padding * 2 / scale.value)
+        }
+    },
+    val size: IPlotDrawScope.(String) -> Size = { c ->
+        val font = Font(null, fontSize)
+        val lines = c.split('\n').map { it to TextLine.make(it, font) }
+        val labelWidth = lines.maxOf { it.second.width } / scale.value
+        val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value
+        Size(labelWidth + padding * 2 / scale.value, labelHeight + padding * 2 / scale.value)
+    },
+    val content: (@UnsafeVariance T) -> String
+) : SinglePlotStyle<E, T>(listOf(100)) {
+
+    override fun IPlotDrawScope.drawScene(item: @UnsafeVariance T, requestedZ: Int, plot: SinglePlot) {
+        val c = content(item)
+        val font = Font(null, fontSize)
+        val lines = c.split('\n').map { it to TextLine.make(it, font) }
+
+        val position =
+            if (mouseIsPositionSource) mousePosition.value ?: return else Offset(item.x, item.y.values.first()!!)
+        val (startTop, size) = position(c, position, plot).let {
+            if (mouseIsPositionSource) mappedOffset(it) else it
+        } to size(c)
 
         drawRoundRect(
             backgroundColor,

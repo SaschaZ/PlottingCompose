@@ -50,12 +50,22 @@ fun main() = application {
 
         val candles = remember {
             PlotSeries(ohcl.takeLast(100).map { o ->
-                OhclItem(o,
+                OhclItem(
+                    o,
                     SingleFocusable(
                         CandleSticks(lineColor = Color.White),
                         CandleSticks(Color.Yellow, Color.Blue, lineColor = Color.White)
                     ),
-                    Label { "${it.extra.time}\n${it.volume}" })
+                    Label<Ohcl, Ohcl> { "${it.extra.time}\n${it.volume}" }.focused(),
+                    Label<Ohcl, Ohcl>(borderColor = Color.Transparent,
+                        borderRoundCorner = 0f,
+                        borderWidth = 0f,
+                        padding = 0f,
+                        backgroundColor = Color.Transparent,
+                        contentColor = Color.White,
+                        mouseIsPositionSource = false,
+                        position = { _, pos, _ -> pos }) { "${it.close}$" }.focused()
+                )
             })
         }
         val volume = remember {
@@ -142,8 +152,7 @@ fun main() = application {
                         else -> ScrollAction.SCALE
                     }*/,
                     verticalPadding = { 0.dp }, verticalPlotPadding = { 0.dp },
-                    horizontalPadding = { 0.dp },// horizontalPlotPadding = { 0.dp },
-//                    drawYLabels = false, drawXLabels = false
+                    horizontalPadding = { 0.dp },
                     plotYLabelWidth = { plotSize.value.width.dp * 0.075f },
                     plotXLabelHeight = { plotSize.value.height.dp * 0.2f }
                 ),
