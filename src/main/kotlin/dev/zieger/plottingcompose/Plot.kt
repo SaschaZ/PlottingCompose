@@ -163,11 +163,11 @@ private operator fun IntSize.div(fl: Float): Offset {
 fun SinglePlot.applyTranslationOffset(allSeries: SnapshotStateList<PlotSeries<*, *>>) = scope.run {
     if (plotSize.value.width == 0 || plotSize.value.height == 0) return
 
-    val widthFactor = allSeries.xWidth / plot.height
+    val widthFactor = allSeries.xWidth / plot.width
     val heightFactor = allSeries.yHeight / plot.height
 
     translationOffset.value = Offset(-allSeries.xRange.start / widthFactor, allSeries.yRange.start / heightFactor)
-    println("transOff=${translationOffset.value}; yRangeStart=${allSeries.yRange.start}; heightFactor=$heightFactor")
+    println("transOff=${translationOffset.value}; xRangeStart=${allSeries.xRange.start}; widthFactor=$widthFactor; yRangeStart=${allSeries.yRange.start}; heightFactor=$heightFactor")
     applyTranslationOffset.value = false
 }
 
@@ -337,6 +337,23 @@ private fun SinglePlot.drawYAxis() = scope.run {
                                 Offset((x - plotTickLength().value / 2), yScene),
                                 Offset((x + plotTickLength().value / 2), yScene)
                             )
+                    }
+                }
+            }
+        }
+    }
+    clipRect(yLabel.copy(bottom = yLabel.bottom + plotTickLength().value)) {
+        translate(0f, this@run.finalTranslation(scope).y) {
+            scale(
+                1f,
+                this@run.scale.value,
+                this@run.scaleCenter.value - this@run.translationOffset.value
+            ) {
+                this@run.run run2@{
+                    val x =
+                        plotSize.value.width - horizontalPadding().value - yLabel.width + plotTickLength().value / 2
+                    yTicks.forEach { (y, str) ->
+                        val yScene = toScene(Offset(0f, y.toFloat())).y
 
                         if (drawYLabels) {
                             val offset = Offset(

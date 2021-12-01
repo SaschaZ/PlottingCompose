@@ -32,10 +32,25 @@ fun main() = application {
             )
         }
 
-        val candles = remember {
+        val ohcl = remember {
             var lastClose: Float? = null
-            PlotSeries((0..150).map { idx ->
-                OhclItem(randomOhcl(idx.toLong(), lastClose).also { c -> lastClose = c.close },
+            (0..150).map { idx ->
+                randomOhcl(idx.toLong(), lastClose).also { c -> lastClose = c.close }
+            }
+        }
+        val closes = remember {
+            ohcl.map { it.time to it.close }
+        }
+        val sma20 = remember {
+            closes.mapIndexed { idx, (time, _) ->
+                time to closes.subList((idx - 20).coerceAtLeast(0), idx)
+                    .map { it.second }.average()
+            }
+        }
+
+        val candles = remember {
+            PlotSeries(ohcl.takeLast(100).map { o ->
+                OhclItem(o,
                     SingleFocusable(
                         CandleSticks(lineColor = Color.White),
                         CandleSticks(Color.Yellow, Color.Blue, lineColor = Color.White)
@@ -45,49 +60,36 @@ fun main() = application {
         }
         val volume = remember {
             PlotSeries(
-                candles.items.map {
+                ohcl.takeLast(100).map {
                     PlotSeriesItem(
-                        SimplePlotItem(it.item.time.toFloat(), it.item.volume.toFloat(), extra = Unit),
-                        Impulses(if (it.item.open <= it.item.close) Color.Green else Color.Red)
+                        SimplePlotItem(it.time.toFloat(), it.volume.toFloat()),
+                        Impulses(if (it.open <= it.close) Color.Green else Color.Red)
                     )
                 }
-            )
-        }
-        val sma = remember {
-            val closes = candles.items.map { it.item.time to it.item.close }
-            PlotSeries(
-                closes.mapIndexed { idx, (x, _) ->
-                    x to closes.subList((idx - 24).coerceAtLeast(0), idx)
-                        .map { it.second }.average()
-                }.map { (x, sma) -> if (sma.isNaN() || sma.isInfinite()) x to null else x to sma }
-                    .map { (x, sma) -> PlotSeriesItem(SimplePlotItem(x.toFloat(), sma?.toFloat())) },
-                Line()
             )
         }
         val bb = remember {
-            val stdDev = sma.items.mapIndexed { idx, _ ->
-                val items = sma.items.subList((idx - 20).coerceAtLeast(0), idx)
-                    .mapNotNull { it.item.y.values.first() }
+            val stdDev = sma20.mapIndexed { idx, (time, _) ->
+                val items = sma20.subList((idx - 20).coerceAtLeast(0), idx)
+                    .map { it.second }
                 if (idx > 22) {
                     val avg = items.average()
-                    sqrt(items.sumOf { (it - avg).pow(2) })
+                    time to sqrt(items.sumOf { (it - avg).pow(2) })
                 } else null
             }
-            val bb = sma.items.mapIndexed { idx, item ->
-                item.item.x to item.item.y.values.firstOrNull()?.let {
-                    Triple(
-                        stdDev[idx]?.let { s -> it - s },
-                        it,
-                        stdDev[idx]?.let { s -> it + s }
-                    )
-                }
-            }
+            val bb = sma20.map { (time, sma) ->
+                time to Triple(
+                    stdDev.firstOrNull { it?.first == time }?.let { (_, s) -> sma - s },
+                    sma,
+                    stdDev.firstOrNull { it?.first == time }?.let { (_, s) -> sma + s }
+                )
+            }.takeLast(100)
             PlotSeries(
                 bb.map { (x, y) ->
                     PlotSeriesItem(
                         SimplePlotItem(
-                            x,
-                            *y?.toList()?.map { it?.toFloat() }?.toTypedArray() ?: emptyArray()
+                            x.toFloat(),
+                            *y.toList().map { it?.toFloat() }.toTypedArray()
                         )
                     )
                 },
@@ -140,9 +142,10 @@ fun main() = application {
                         else -> ScrollAction.SCALE
                     }*/,
                     verticalPadding = { 0.dp }, verticalPlotPadding = { 0.dp },
-                    horizontalPadding = { 0.dp }, horizontalPlotPadding = { 0.dp },
+                    horizontalPadding = { 0.dp },// horizontalPlotPadding = { 0.dp },
 //                    drawYLabels = false, drawXLabels = false
-                    plotYLabelWidth = { plotSize.value.width.dp * 0.075f }
+                    plotYLabelWidth = { plotSize.value.width.dp * 0.075f },
+                    plotXLabelHeight = { plotSize.value.height.dp * 0.2f }
                 ),
                 colors = PlotColors(Color.Black, Color.White, Color.DarkGray, Color.White, Color.White)
             ) {
@@ -150,7 +153,7 @@ fun main() = application {
                     set(candles)
                     add(bb)
                 }
-                plot(0.15f, it.copy(verticalPlotPadding = { 0.dp })) {
+                plot(0.15f) {
                     set(volume)
                 }
             }

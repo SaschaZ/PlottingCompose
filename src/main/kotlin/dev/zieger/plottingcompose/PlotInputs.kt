@@ -3,6 +3,8 @@ package dev.zieger.plottingcompose
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.mouse.MouseScrollOrientation
 import androidx.compose.ui.input.mouse.MouseScrollUnit
 import androidx.compose.ui.input.mouse.mouseScrollFilter
@@ -56,8 +58,16 @@ fun Modifier.plotInputs(scope: IPlotParameterScope): Modifier = scope.run {
         }
         true
     }.pointerInput(Unit) {
-        detectDragGestures { _, dragAmount ->
-            if (!enableTranslation) return@detectDragGestures
+        var isValidDrag = false
+        detectDragGestures(onDragStart = {
+            val validRect = Rect(
+                horizontalPadding().value + 2, verticalPadding().value + 3,
+                plotSize.value.width - horizontalPadding().value - if (drawYLabels) plotYLabelWidth().value else 0f - 2,
+                plotSize.value.height - verticalPadding().value - if (drawXLabels) plotXLabelHeight().value else 0f - 2
+            )
+            isValidDrag = it inside validRect
+        }) { _, dragAmount ->
+            if (!enableTranslation || !isValidDrag) return@detectDragGestures
             translation.value = (translation.value + dragAmount)
         }
     }.pointerMoveFilter(onMove = {
@@ -68,3 +78,6 @@ fun Modifier.plotInputs(scope: IPlotParameterScope): Modifier = scope.run {
         false
     })
 }
+
+private infix fun Offset.inside(rect: Rect): Boolean =
+    x in rect.left..rect.right && y in rect.top..rect.bottom
