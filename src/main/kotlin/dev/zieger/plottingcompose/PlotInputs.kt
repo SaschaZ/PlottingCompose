@@ -20,13 +20,21 @@ fun Modifier.plotInputs(scope: IPlotParameterScope): Modifier = scope.run {
                 ?: (event.delta as? MouseScrollUnit.Page)?.value)?.also { delta ->
                 when (scrollAction) {
                     ScrollAction.X_TRANSLATION ->
-                        translation.value = translation.value.let { it.copy(it.x + delta) }
+                        translation.value = translation.value.let { it.copy(it.x + delta * 4) }
                     ScrollAction.WIDTH_FACTOR -> {
-                        widthFactor.value = (widthFactor.value + widthFactor.value * delta / 20).coerceAtLeast(1f)
+                        val newXStretch = (widthFactor.value + widthFactor.value * delta / 20).coerceAtLeast(1f)
+                        when {
+                            newXStretch < widthFactor.value -> {
+                                val diff = widthFactor.value - newXStretch
+                                val percent = diff / (widthFactor.value - 1f)
+                                translation.value = translation.value * (1f - percent)
+                            }
+                        }
+                        widthFactor.value = newXStretch
                         mousePosition.value?.also { pos ->
                             val prev = widthFactorCenter.value
-                            widthFactorCenter.value =
-                                widthFactorCenter.value + (pos - widthFactorCenter.value - translation.value) / widthFactor.value
+                            widthFactorCenter.value = widthFactorCenter.value +
+                                    (pos - widthFactorCenter.value - translation.value - translationOffset.value) / widthFactor.value
                             println("mouse: $pos; widthFactorCenter=$prev -> ${widthFactorCenter.value}; factor=${widthFactor.value}")
                         }
                     }
@@ -53,7 +61,7 @@ fun Modifier.plotInputs(scope: IPlotParameterScope): Modifier = scope.run {
             MouseScrollOrientation.Horizontal -> ((event.delta as? MouseScrollUnit.Line)?.value
                 ?: (event.delta as? MouseScrollUnit.Page)?.value)?.also { delta ->
                 println("horizontal delta=$delta")
-                translation.value = translation.value.let { it.copy(it.x + delta) }
+                translation.value = translation.value.let { it.copy(it.x + delta * 4) }
             }
         }
         true
