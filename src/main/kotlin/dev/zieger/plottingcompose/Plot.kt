@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -14,7 +13,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
@@ -104,20 +102,9 @@ private fun Plot(
     plotScope: IPlotScope,
     block: PlotHandler.() -> Unit
 ): PlotHandler = PlotParameterScope(plotScope, parameter, colors).run {
-    val allSeries = remember { mutableStateListOf<PlotSeries<*, *>>() }
     val handler = remember {
-        PlotHandler({ series ->
-            if (series !in allSeries || allSeries.size != 1) {
-                allSeries.clear()
-                allSeries.add(series)
-                applyTranslationOffset.value = true
-            }
-        }, { series ->
-            if (series !in allSeries) {
-                allSeries.add(series)
-                applyTranslationOffset.value = true
-            }
-        }, { scale.value = it },
+        PlotHandler(
+            { scale.value = it },
             { listener -> scaleListener.add(listener) },
             {
                 scaleCenter.value =
@@ -150,7 +137,7 @@ private fun Plot(
         plotSize.value = it
         applyTranslationOffset.value = true
     }.plotInputs(this)) {
-        PlotDrawScope(this@run, this, allSeries).draw()
+        PlotDrawScope(this@run, this).draw()
     }
 
     handler

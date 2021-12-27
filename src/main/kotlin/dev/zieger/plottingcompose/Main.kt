@@ -13,6 +13,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import dev.zieger.plottingcompose.styles.*
 import java.lang.Float.max
 import java.lang.Float.min
 import kotlin.math.absoluteValue

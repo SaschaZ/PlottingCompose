@@ -4,7 +4,7 @@ package dev.zieger.plottingcompose.scopes
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import dev.zieger.plottingcompose.PlotSeries
+
 
 interface IPlotDrawScope : IPlotParameterScope, DrawScope {
     val allSeries: SnapshotStateList<PlotSeries<*, *>>

@@ -114,8 +114,10 @@ data class SinglePlot(
 
     fun toScene(x: Float, y: Float): Offset = Offset(
         plot.left + widthFactor * x * xStretch.value,
-        plot.bottom - heightFactor * y
+        yToScene(y)
     )
+
+    fun yToScene(y: Float): Float = plot.bottom - heightFactor * y
 
     fun toScene(offset: Offset) = toScene(offset.x, offset.y)
 
