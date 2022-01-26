@@ -2,30 +2,38 @@
 
 package dev.zieger.plottingcompose.indicators
 
+import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Port
+import dev.zieger.plottingcompose.definition.Slot
 import dev.zieger.plottingcompose.definition.with
 import dev.zieger.plottingcompose.indicators.Singles.Companion.CLOSES
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
+data class SmaParameter(
+    val length: Int,
+    val source: Slot<List<Double>, ICandle> = Singles.key(SinglesParameter(length)) with CLOSES
+)
+
 data class Sma(
-    val length: Int, val source: Port<List<Float>> = CLOSES,
-    private val singles: Singles = Singles(length)
+    val params: SmaParameter
 ) : Indicator(
-    key(length, source), listOf(SMA), listOf(singles)
+    key(params), listOf(SMA), Singles.key(SinglesParameter(params.length))
 ) {
 
-    companion object {
+    companion object : IndicatorDefinition<SmaParameter>() {
 
-        fun key(length: Int, source: Port<List<Float>>) = "Sma$length$source"
+        override fun key(param: SmaParameter) = Key("Sma", param) { Sma(param) }
+        fun key(length: Int, source: Slot<List<Double>, ICandle> = Singles.key(SinglesParameter(length)) with CLOSES) =
+            key(SmaParameter(length, source))
 
-        val SMA = Port<Float>("Sma")
+        val SMA = Port<Double>("Sma")
     }
 
     private var average: Double = 0.0
     private var items: Int = 0
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        source.extractValue(data, key with source)?.let { closes ->
+        params.source.value(data)?.let { closes ->
             set(SMA, closes.average())
 //            if (items == length) {
 //                average -= closes.first() / length

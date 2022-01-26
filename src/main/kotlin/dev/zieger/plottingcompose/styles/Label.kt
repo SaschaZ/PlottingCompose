@@ -8,21 +8,21 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.text.style.TextAlign
-
-import dev.zieger.plottingcompose.SinglePlot
+import dev.zieger.plottingcompose.definition.InputContainer
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Port
 import dev.zieger.plottingcompose.definition.Slot
-import dev.zieger.plottingcompose.definition.Value
 import dev.zieger.plottingcompose.drawText
-import dev.zieger.plottingcompose.mappedOffset
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
+import dev.zieger.plottingcompose.scopes.ValueHolder
+import dev.zieger.plottingcompose.x
+import dev.zieger.plottingcompose.y
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
 
-data class Label(
-    val ySlot: Slot<Float>,
-    val contentSlot: Slot<String>,
+data class Label<T : InputContainer>(
+    val ySlot: Slot<Float, T>,
+    val contentSlot: Slot<String, T>,
     val fontSize: Float = 18f,
     val contentColor: Color = Color.Black,
     val backgroundColor: Color = Color.White,
@@ -32,56 +32,55 @@ data class Label(
     val fontScale: Float = 1f,
     val padding: Float = 5f,
     val mouseIsPositionSource: Boolean = true,
-    val position: IPlotDrawScope.(String, Offset, SinglePlot) -> Offset = { c, pos, plot ->
+    val position: IPlotDrawScope<*>.(String, Offset) -> Offset = { c, pos ->
         val font = Font(null, fontSize)
         val lines = c.split('\n').map { it to TextLine.make(it, font) }
-        val labelWidth = lines.maxOf { it.second.width } / scale.value
-        val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value
-        val plotRect = plot.main
+        val labelWidth = lines.maxOf { it.second.width } / scale.value.x
+        val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value.y
         when {
             pos.x < plotRect.left + plotRect.width * 0.5f -> Offset(
                 pos.x - padding,
                 pos.y - padding
             )
             else -> Offset(
-                pos.x - labelWidth * scale.value - padding,
+                pos.x - labelWidth * scale.value.x - padding,
                 pos.y - padding
             )
         }.let {
             when {
                 pos.y > plotRect.bottom - plotRect.height * 0.5f ->
-                    it.copy(y = it.y - labelHeight * scale.value * 2.05f)
+                    it.copy(y = it.y - labelHeight * scale.value.y * 2.05f)
                 else ->
-                    it.copy(y = it.y + labelHeight * scale.value * 1.2f)
+                    it.copy(y = it.y + labelHeight * scale.value.y * 1.2f)
             }
         }
     },
-    val size: IPlotDrawScope.(String) -> Size = { c ->
+    val size: IPlotDrawScope<*>.(String) -> Size = { c ->
         val font = Font(null, fontSize)
         val lines = c.split('\n').map { it to TextLine.make(it, font) }
-        val labelWidth = lines.maxOf { it.second.width } / scale.value
-        val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value
-        Size(labelWidth + padding * 2 / scale.value, labelHeight + padding * 2 / scale.value)
+        val labelWidth = lines.maxOf { it.second.width } / scale.value.x
+        val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value.y
+        Size(labelWidth + padding * 2 / scale.value.x, labelHeight + padding * 2 / scale.value.y)
     }
-) : PlotStyle(ySlot, contentSlot) {
+) : PlotStyle<T>(ySlot, contentSlot) {
 
-    override fun IPlotDrawScope.drawSingle(x: Long, data: Map<Key, Map<Port<*>, Value?>>, plot: SinglePlot) {
-        ySlot.float(data)?.let { y ->
-            contentSlot.string(data)?.let { c ->
+    override fun IPlotDrawScope<T>.drawSingle(value: T, data: Map<Key<T>, Map<Port<*>, ValueHolder?>>) {
+        ySlot.value(data)?.let { y ->
+            contentSlot.value(data)?.let { c ->
                 val font = Font(null, fontSize)
                 val lines = c.split('\n').map { it to TextLine.make(it, font) }
 
                 val position =
-                    if (mouseIsPositionSource) mousePosition.value ?: return else Offset(x.toFloat(), y)
-                val (startTop, size) = position(c, position, plot).let {
-                    if (mouseIsPositionSource) mappedOffset(it) else plot.toScene(it)
+                    if (mouseIsPositionSource) mousePosition.value ?: return else Offset(value.x.toFloat(), y)
+                val (startTop, size) = position(this@drawSingle, c, position).let {
+                    if (mouseIsPositionSource) it else it.toScene()
                 } to size(c)
 
                 drawRoundRect(
                     backgroundColor,
                     startTop,
                     size,
-                    CornerRadius(borderRoundCorner / scale.value, borderRoundCorner / scale.value),
+                    CornerRadius(borderRoundCorner / scale.value.x, borderRoundCorner / scale.value.y),
                     Fill,
                     backgroundColor.alpha
                 )
@@ -89,17 +88,17 @@ data class Label(
                     borderColor,
                     startTop,
                     size,
-                    CornerRadius(borderRoundCorner / scale.value, borderRoundCorner / scale.value),
-                    Stroke(borderWidth / scale.value),
+                    CornerRadius(borderRoundCorner / scale.value.x, borderRoundCorner / scale.value.y),
+                    Stroke(borderWidth / scale.value.x),
                     borderColor.alpha
                 )
                 lines.forEachIndexed { idx, line ->
                     val scale = scale.value
                     val off = startTop.copy(
-                        x = startTop.x + padding / scale,
-                        y = startTop.y + (lines.take(idx + 1).sumOf { it.second.height.toInt() }) / scale
+                        x = startTop.x + padding / scale.x,
+                        y = startTop.y + (lines.take(idx + 1).sumOf { it.second.height.toInt() }) / scale.y
                     )
-                    scale(1 / scale, 1 / scale, off) {
+                    scale(1 / scale.x, 1 / scale.y, off) {
                         drawText(
                             line.first,
                             off,

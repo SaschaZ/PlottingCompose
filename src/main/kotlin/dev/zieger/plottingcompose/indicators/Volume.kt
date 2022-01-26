@@ -1,13 +1,15 @@
 package dev.zieger.plottingcompose.indicators
 
+import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Port
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
 class Volume : Indicator(key(), listOf(VOLUME)) {
 
-    companion object {
+    companion object : IndicatorDefinition<Unit>() {
 
-        private fun key() = "Volume"
+        override fun key(param: Unit) = Key("Volume", param) { Volume() }
+        fun key() = key(Unit)
 
         val VOLUME = Port<Long>("VOLUME")
     }

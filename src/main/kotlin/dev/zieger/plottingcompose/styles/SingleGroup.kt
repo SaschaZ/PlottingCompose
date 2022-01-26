@@ -1,16 +1,17 @@
 package dev.zieger.plottingcompose.styles
 
 
-import dev.zieger.plottingcompose.SinglePlot
+import dev.zieger.plottingcompose.definition.InputContainer
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Port
-import dev.zieger.plottingcompose.definition.Value
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
+import dev.zieger.plottingcompose.scopes.ValueHolder
 
-open class SingleGroup(vararg style: PlotStyle) : PlotStyle(*style.flatMap { it.slots }.toTypedArray()) {
+open class SingleGroup<I : InputContainer>(vararg style: PlotStyle<I>) :
+    PlotStyle<I>(*style.flatMap { it.slots }.toTypedArray()) {
 
-    private val styles: List<PlotStyle> = style.toList()
+    private val styles: List<PlotStyle<I>> = style.toList()
 
-    override fun IPlotDrawScope.drawSingle(x: Long, data: Map<Key, Map<Port<*>, Value?>>, plot: SinglePlot) =
-        styles.forEach { it.run { drawSingle(x, data, plot) } }
+    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, Map<Port<*>, ValueHolder?>>) =
+        styles.forEach { it.run { drawSingle(value, data) } }
 }

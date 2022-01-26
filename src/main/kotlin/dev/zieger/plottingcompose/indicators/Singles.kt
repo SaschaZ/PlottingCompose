@@ -2,31 +2,36 @@ package dev.zieger.plottingcompose.indicators
 
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Port
-import dev.zieger.plottingcompose.definition.extractValue
+import dev.zieger.plottingcompose.definition.Slot
 import dev.zieger.plottingcompose.definition.with
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
-data class Singles(
+data class SinglesParameter(
     val length: Int,
-    private val candles: Candles = Candles(length)
+    val candles: Slot<List<ICandle>, ICandle> = Candles.key(length) with Candles.CANDLES
+)
+
+data class Singles(
+    val param: SinglesParameter
 ) : Indicator(
-    key(length),
-    listOf(OPENS, HIGHS, CLOSES, LOWS, VOLUMES), listOf(candles)
+    key(param),
+    listOf(OPENS, HIGHS, CLOSES, LOWS, VOLUMES), param.candles.key
 ) {
 
-    companion object {
+    companion object : IndicatorDefinition<SinglesParameter>() {
 
-        fun key(length: Int): Key = "Singles$length"
+        override fun key(param: SinglesParameter) = Key("Singles", param) { Singles(param) }
+        fun key(length: Int) = key(SinglesParameter(length))
 
-        val OPENS = Port<List<Float>>("Opens")
-        val HIGHS = Port<List<Float>>("Highs")
-        val CLOSES = Port<List<Float>>("Closes")
-        val LOWS = Port<List<Float>>("Lows")
-        val VOLUMES = Port<List<Float>>("Volumes")
+        val OPENS = Port<List<Double>>("Opens")
+        val HIGHS = Port<List<Double>>("Highs")
+        val CLOSES = Port<List<Double>>("Closes")
+        val LOWS = Port<List<Double>>("Lows")
+        val VOLUMES = Port<List<Double>>("Volumes")
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        (candles.key with Candles.CANDLES).extractValue(data)?.let { candles ->
+        param.candles.value(data)?.let { candles ->
             set(OPENS, candles.map { it.open })
             set(HIGHS, candles.map { it.high })
             set(CLOSES, candles.map { it.close })
