@@ -5,7 +5,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.text.style.TextAlign
-import dev.zieger.plottingcompose.definition.InputContainer
+import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.scopes.IChartDrawScope
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
@@ -39,17 +39,17 @@ fun DrawScope.drawText(
 fun DrawScope.drawRect(color: Color, rect: Rect, drawStyle: DrawStyle = Fill) =
     drawRect(color, rect.topLeft, rect.size, style = drawStyle)
 
-fun <T : InputContainer, S : IChartDrawScope<T>> S.clipRect(rect: Rect, block: S.() -> Unit): Unit = rect.run {
+fun <T : Input, S : IChartDrawScope<T>> S.clipRect(rect: Rect, block: S.() -> Unit): Unit = rect.run {
     clipRect(left, top, right, bottom, ClipOp.Intersect) {
         block(this@clipRect)
     }
 }
 
-fun <T : InputContainer, S : IChartDrawScope<T>> S.translate(offset: Offset, block: S.() -> Unit) {
+fun <T : Input, S : IChartDrawScope<T>> S.translate(offset: Offset, block: S.() -> Unit) {
     translate(offset.x, offset.y) { block(this@translate) }
 }
 
-fun <T : InputContainer, S : IChartDrawScope<T>> S.scale(
+fun <T : Input, S : IChartDrawScope<T>> S.scale(
     scale: Pair<Float, Float>,
     pivot: Offset,
     block: S.() -> Unit

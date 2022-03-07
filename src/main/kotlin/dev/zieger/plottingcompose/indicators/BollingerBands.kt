@@ -1,6 +1,7 @@
 package dev.zieger.plottingcompose.indicators
 
 import dev.zieger.plottingcompose.definition.Key
+import dev.zieger.plottingcompose.definition.Output
 import dev.zieger.plottingcompose.definition.Port
 import dev.zieger.plottingcompose.definition.with
 import dev.zieger.plottingcompose.processor.ProcessingScope
@@ -13,7 +14,7 @@ data class BollingerBandsParameter(
 
 data class BollingerBands(
     val param: BollingerBandsParameter,
-) : Indicator(
+) : Indicator<ICandle>(
     key(param), listOf(HIGH, MID, LOW),
     StdDev.key(param.length), param.averageType(param.length)
 ) {
@@ -26,9 +27,9 @@ data class BollingerBands(
         fun key(length: Int, stdDevFactor: Double, averageType: AverageType) =
             key(BollingerBandsParameter(length, stdDevFactor, averageType))
 
-        val HIGH = Port<Double>("High")
-        val MID = Port<Double>("Mid")
-        val LOW = Port<Double>("Low")
+        val HIGH = Port<Output.Scalar>("High")
+        val MID = Port<Output.Scalar>("Mid")
+        val LOW = Port<Output.Scalar>("Low")
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
@@ -37,10 +38,10 @@ data class BollingerBands(
                 AverageType.SMA -> Sma.SMA
                 AverageType.EMA -> Ema.EMA
             }).value(data)?.let { avg ->
-                val width = stdDev * param.stdDevFactor
-                set(HIGH, avg + width)
+                val width = stdDev.scalar.toDouble() * param.stdDevFactor
+                set(HIGH, Output.Scalar(input.x, avg.scalar.toDouble() + width))
                 set(MID, avg)
-                set(LOW, avg - width)
+                set(LOW, Output.Scalar(input.x, avg.scalar.toDouble() - width))
             }
         }
     }

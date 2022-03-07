@@ -1,24 +1,20 @@
 package dev.zieger.plottingcompose.styles
 
-import dev.zieger.plottingcompose.definition.InputContainer
-import dev.zieger.plottingcompose.definition.Key
-import dev.zieger.plottingcompose.definition.Port
-import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
-import dev.zieger.plottingcompose.scopes.ValueHolder
 
-open class SingleFocusable<I : InputContainer>(
-    private val focusedSlot: Slot<(Double) -> Boolean, I>,
+open class SingleFocusable<I : Input>(
+    private val focusedSlot: Slot<I, Output.Lambda>,
     private val unfocused: PlotStyle<I>,
     private val focused: PlotStyle<I>
 ) : SingleGroup<I>(*arrayOf(unfocused, focused)) {
-    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, Map<Port<*>, ValueHolder?>>) {
-        when (focusedSlot.value(data)?.invoke(value.x)) {
+    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) {
+        when (focusedSlot.value(data)?.lambda?.invoke(value.x)) {
             true -> focused.run { drawSingle(value, data) }
             else -> unfocused.run { drawSingle(value, data) }
         }
     }
 }
 
-fun <I : InputContainer, SP : PlotStyle<I>> SP.focused(focusedSlot: Slot<(Double) -> Boolean, I>) =
+fun <I : Input, SP : PlotStyle<I>> SP.focused(focusedSlot: Slot<I, Output.Lambda>) =
     SingleFocusable(focusedSlot, PlotStyle(), this)

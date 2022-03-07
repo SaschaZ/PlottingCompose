@@ -8,21 +8,17 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.text.style.TextAlign
-import dev.zieger.plottingcompose.definition.InputContainer
-import dev.zieger.plottingcompose.definition.Key
-import dev.zieger.plottingcompose.definition.Port
-import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.drawText
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
-import dev.zieger.plottingcompose.scopes.ValueHolder
 import dev.zieger.plottingcompose.x
 import dev.zieger.plottingcompose.y
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
 
-data class Label<T : InputContainer>(
-    val ySlot: Slot<Float, T>,
-    val contentSlot: Slot<String, T>,
+data class Label<I : Input>(
+    val ySlot: Slot<I, Output.Scalar>,
+    val contentSlot: Slot<I, Output.Label>,
     val fontSize: Float = 18f,
     val contentColor: Color = Color.Black,
     val backgroundColor: Color = Color.White,
@@ -62,11 +58,11 @@ data class Label<T : InputContainer>(
         val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value.y
         Size(labelWidth + padding * 2 / scale.value.x, labelHeight + padding * 2 / scale.value.y)
     }
-) : PlotStyle<T>(ySlot, contentSlot) {
+) : PlotStyle<I>(ySlot, contentSlot) {
 
-    override fun IPlotDrawScope<T>.drawSingle(value: T, data: Map<Key<T>, Map<Port<*>, ValueHolder?>>) {
-        ySlot.value(data)?.let { y ->
-            contentSlot.value(data)?.let { c ->
+    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) {
+        ySlot.value(data)?.scalar?.toFloat()?.let { y ->
+            contentSlot.value(data)?.label?.let { c ->
                 val font = Font(null, fontSize)
                 val lines = c.split('\n').map { it to TextLine.make(it, font) }
 

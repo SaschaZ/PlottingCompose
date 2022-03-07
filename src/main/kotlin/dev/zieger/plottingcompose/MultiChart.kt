@@ -12,8 +12,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.mouse.MouseScrollOrientation
 import androidx.compose.ui.input.mouse.MouseScrollUnit
@@ -24,7 +22,7 @@ import androidx.compose.ui.input.pointer.pointerMoveFilter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
 import dev.zieger.plottingcompose.definition.ChartDefinition
-import dev.zieger.plottingcompose.definition.InputContainer
+import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.definition.keys
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.processor.Processor
@@ -33,8 +31,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun <T : InputContainer> MultiChart(
+fun <T : Input> MultiChart(
     definition: ChartDefinition<T>,
     input: Flow<T>,
     modifier: Modifier = Modifier
@@ -43,6 +42,7 @@ fun <T : InputContainer> MultiChart(
     val scope = rememberCoroutineScope()
     remember {
         scope.launch {
+            scopes.clear()
             Processor(definition.keys()).process(input).collect { s ->
                 scopes += s
             }
@@ -92,14 +92,14 @@ fun <T : InputContainer> MultiChart(
 
 private operator fun Offset.div(value: Pair<Float, Float>): Offset = copy(x / value.x, y / value.y)
 
-fun <T : InputContainer> IChartDrawScope<T>.draw() {
+fun <T : Input> IChartDrawScope<T>.draw() {
     drawRect(definition.backgroundColor, rootRect)
     definition.charts.forEach { chart ->
         PlotDrawScope(chart, this).draw()
     }
 }
 
-fun <T : InputContainer> IPlotDrawScope<T>.draw() {
+fun <T : Input> IPlotDrawScope<T>.draw() {
     drawRect(chart.backgroundColor, plotBorderRect)
     drawRect(chart.borderColor, plotBorderRect, Stroke(1f))
 
@@ -197,23 +197,13 @@ fun <T : InputContainer> IPlotDrawScope<T>.draw() {
         }
     }
 
-    val visYPixHeight = visibleYValueRange.run { endInclusive - start } / heightDivisor
-    val scaleYOffset = plotRect.height / visYPixHeight - 1f
-    scaleOffset.value = 0f to scaleYOffset
-    translationOffset.value = Offset(0f, visibleYValueRange.start / heightDivisor * (1f - scaleYOffset))
+    translationOffset.value = Offset(0f, visibleYPixelRange.start)
 
-    drawRect(Color.Cyan, Offset(visibleXPixelRange.start, 0f),
-        Size(visibleXPixelRange.run { endInclusive - start }, 12f), 0.25f
+    println(
+        "visibleXPixelRange=$visibleXPixelRange; visibleXValueRange=$xValueRange\n" +
+                "visibleYPixelRange=$visibleYPixelRange; visibleYValueRange=$yValueRange\n" +
+                "translationOffset=${translationOffset.value}; finalTranslation=$finalTranslation\n" +
+                "scaleCenter=${scaleCenter.value}; scale=${scale.value}\n" +
+                "heightDivisor=$heightDivisor(${System.identityHashCode(this@draw)})"
     )
-    drawRect(Color.Yellow, Offset(visibleXValueRange.start / widthDivisor + plotRect.left, 12f),
-        Size(visibleXValueRange.run { endInclusive - start } / widthDivisor, 12f), 0.25f)
-
-    drawRect(
-        Color.Cyan,
-        Offset(0f, visibleYPixelRange.start),
-        Size(12f, visibleYPixelRange.run { endInclusive - start }),
-        0.25f
-    )
-    drawRect(Color.Yellow, Offset(12f, visibleYValueRange.start / heightDivisor),
-        Size(12f, visibleYValueRange.run { endInclusive - start } / heightDivisor), 0.25f)
 }

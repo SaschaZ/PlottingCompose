@@ -4,14 +4,14 @@ import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.processor.ProcessingUnit
 import kotlin.reflect.cast
 
-abstract class Indicator(
-    key: Key<ICandle>,
+abstract class Indicator<I : Input>(
+    key: Key<I>,
     produces: List<Port<*>> = emptyList(),
-    vararg dependsOn: Key<ICandle>
-) : ProcessingUnit<ICandle>(key, produces, *dependsOn) {
+    vararg dependsOn: Key<I>
+) : ProcessingUnit<I>(key, produces, *dependsOn) {
 
-    protected fun <T : Any, I : InputContainer> Slot<T, I>.value(data: Map<Key<I>, Map<Port<*>, Value?>>): T? =
-        data[key]?.get(port)?.let { v ->
+    protected fun <I : Input, O : Output> Slot<I, O>.value(data: Map<Key<I>, List<PortValue<*>>>): O? =
+        data[key]?.firstOrNull { it.port == port }?.let { v ->
             if (port.type.isInstance(v))
                 port.type.cast(v)
             else null
@@ -20,5 +20,5 @@ abstract class Indicator(
 
 abstract class IndicatorDefinition<P : Any> {
 
-    abstract fun key(param: P): Key<ICandle>
+    abstract fun key(param: P): Key<*>
 }

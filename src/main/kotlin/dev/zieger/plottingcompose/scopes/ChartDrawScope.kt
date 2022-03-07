@@ -4,11 +4,11 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import dev.zieger.plottingcompose.definition.ChartDefinition
-import dev.zieger.plottingcompose.definition.InputContainer
+import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
 
-interface IChartDrawScope<T : InputContainer> : DrawScope, IChartEnvironment, IDrawScopeRegionHolder {
+interface IChartDrawScope<T : Input> : DrawScope, IChartEnvironment, IDrawScopeRegionHolder {
     val definition: ChartDefinition<T>
     val scopes: SnapshotStateList<ProcessingScope<T>>
 
@@ -16,7 +16,7 @@ interface IChartDrawScope<T : InputContainer> : DrawScope, IChartEnvironment, ID
     val chartRect: Rect
 }
 
-fun <T : InputContainer> ChartDrawScope(
+fun <T : Input> ChartDrawScope(
     definition: ChartDefinition<T>,
     drawScope: DrawScope,
     scopes: SnapshotStateList<ProcessingScope<T>>,

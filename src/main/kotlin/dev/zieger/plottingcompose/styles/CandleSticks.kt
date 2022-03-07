@@ -4,28 +4,28 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import dev.zieger.plottingcompose.definition.InputContainer
+import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.definition.Key
-import dev.zieger.plottingcompose.definition.Port
+import dev.zieger.plottingcompose.definition.PortValue
 import dev.zieger.plottingcompose.definition.Slot
 import dev.zieger.plottingcompose.indicators.Ohcl
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
-import dev.zieger.plottingcompose.scopes.ValueHolder
 import dev.zieger.plottingcompose.x
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
 
-open class CandleSticks<T : InputContainer>(
-    private val slot: Slot<Ohcl.Companion.Ohcl, T>,
+open class CandleSticks<I : Input>(
+    private val slot: Slot<I, Ohcl.Companion.Ohcl>,
     private val positiveColor: Color = Color.Green,
     private val negativeColor: Color = Color.Red,
     private val lineColor: Color = Color.White,
     private val lineWidth: Float = 1f
-) : PlotStyle<T>(slot) {
+) : PlotStyle<I>(slot) {
 
-    override fun IPlotDrawScope<T>.drawSingle(value: T, data: Map<Key<T>, Map<Port<*>, ValueHolder?>>) {
-        val candle = slot.value(data)!!
+    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) {
+        val candle = slot.value(data) ?: return
+        println("heightDivisor=$heightDivisor(${System.identityHashCode(this)})  in style")
         val bodySize = Size(
             40 / widthDivisor * xStretchFactor.value,
             (candle.open - candle.close).absoluteValue.toFloat() / heightDivisor

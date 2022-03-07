@@ -1,21 +1,18 @@
 package dev.zieger.plottingcompose.indicators
 
-import dev.zieger.plottingcompose.definition.Key
-import dev.zieger.plottingcompose.definition.Port
-import dev.zieger.plottingcompose.definition.Slot
-import dev.zieger.plottingcompose.definition.with
+import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import kotlin.math.pow
 import kotlin.math.sqrt
 
 data class StdDevParameter(
     val length: Int,
-    val singles: Slot<List<Double>, ICandle> = Singles.key(SinglesParameter(length)) with Singles.CLOSES
+    val singles: Slot<ICandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES
 )
 
 data class StdDev(
     val params: StdDevParameter
-) : Indicator(
+) : Indicator<ICandle>(
     key(params), listOf(STD_DEV),
     params.singles.key
 ) {
@@ -24,14 +21,14 @@ data class StdDev(
         override fun key(param: StdDevParameter) = Key("StdDev", param) { StdDev(param) }
         fun key(length: Int) = key(StdDevParameter(length))
 
-        val STD_DEV = Port<Double>("StdDev")
+        val STD_DEV = Port<Output.Scalar>("StdDev")
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
         params.singles.value(data)?.let { closes ->
-            val mean = closes.average()
-            val stdDev = sqrt(closes.map { it - mean }.map { it.pow(2) }.average())
-            set(STD_DEV, stdDev)
+            val mean = closes.items.map { it.scalar.toDouble() }.average()
+            val stdDev = sqrt(closes.items.map { it.scalar.toDouble() - mean }.map { it.pow(2) }.average())
+            set(STD_DEV, Output.Scalar(input.x, stdDev))
         }
     }
 }

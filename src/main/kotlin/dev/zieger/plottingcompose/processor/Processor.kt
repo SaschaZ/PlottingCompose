@@ -1,18 +1,18 @@
 package dev.zieger.plottingcompose.processor
 
-import dev.zieger.plottingcompose.definition.InputContainer
+import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.definition.Key
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 
-class Processor<T : InputContainer>(private val keys: List<Key<T>>) {
+class Processor<I : Input>(private val keys: List<Key<I>>) {
 
-    constructor(vararg unit: Key<T>) : this(unit.toList())
+    constructor(vararg unit: Key<I>) : this(unit.toList())
 
-    fun process(input: Flow<T>): Flow<ProcessingScope<T>> = flow {
-        val units = HashMap<Key<T>, ProcessingUnit<T>>()
-        fun Key<T>.buildUnits(): Unit {
+    fun process(input: Flow<I>): Flow<ProcessingScope<I>> = flow {
+        val units = HashMap<Key<I>, ProcessingUnit<I>>()
+        fun Key<I>.buildUnits(): Unit {
             units.getOrPut(this) { invoke().also { it.dependsOn.forEach { d -> d.buildUnits() } } }
         }
         keys.forEach { it.buildUnits() }

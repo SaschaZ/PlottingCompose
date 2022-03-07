@@ -13,7 +13,7 @@ import java.math.MathContext
 import java.math.RoundingMode
 import java.text.DecimalFormat
 
-class ChartDefinition<T : InputContainer>(
+class ChartDefinition<T : Input>(
     vararg chart: Chart<T>,
     val title: ChartTitle = ChartTitle(""),
     val margin: Margin = Margin(0.05f, 0.05f),
@@ -22,10 +22,8 @@ class ChartDefinition<T : InputContainer>(
     val charts: List<Chart<T>> = chart.toList()
 }
 
-fun <T : InputContainer> ChartDefinition<T>.keys(): List<Key<T>> =
+fun <I : Input> ChartDefinition<I>.keys(): List<Key<I>> =
     charts.flatMap { c -> c.plots.flatMap { it.slots.map { s -> s.key } } }
-
-val ChartDefinition<*>.ports: List<Port<*>> get() = charts.flatMap { c -> c.plots.flatMap { p -> p.slots.map { s -> s.port } } }
 
 class ChartTitle(
     val text: String,
@@ -51,7 +49,7 @@ class Margin(
     constructor(horizontal: Float, vertical: Float) : this({ (width * horizontal).dp }, { (height * vertical).dp })
 }
 
-class Chart<T : InputContainer>(
+class Chart<T : Input>(
     vararg plot: PlotStyle<T>,
     val margin: Margin = Margin(0.005f, 0.005f),
     val verticalWeight: Float = 1f,

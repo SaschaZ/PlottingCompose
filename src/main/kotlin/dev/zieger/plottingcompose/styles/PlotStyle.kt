@@ -4,19 +4,15 @@ package dev.zieger.plottingcompose.styles
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
-import dev.zieger.plottingcompose.definition.InputContainer
-import dev.zieger.plottingcompose.definition.Key
-import dev.zieger.plottingcompose.definition.Port
-import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
-import dev.zieger.plottingcompose.scopes.ValueHolder
 import kotlin.reflect.cast
 
-open class PlotStyle<I : InputContainer>(vararg slot: Slot<*, I>) {
+open class PlotStyle<I : Input>(vararg slot: Slot<I, *>) {
 
-    val slots: List<Slot<*, I>> = slot.toList()
+    val slots: List<Slot<I, *>> = slot.toList()
 
-    open fun IPlotDrawScope<I>.drawSeries(data: Map<I, Map<Key<I>, Map<Port<*>, ValueHolder?>>>) {
+    open fun IPlotDrawScope<I>.drawSeries(data: Map<I, Map<Key<I>, List<PortValue<*>>>>) {
         data.entries.forEachIndexed { idx, (key, data) ->
             activeIdx = idx
             drawSingle(key, data)
@@ -24,10 +20,10 @@ open class PlotStyle<I : InputContainer>(vararg slot: Slot<*, I>) {
         activeIdx = -1
     }
 
-    open fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, Map<Port<*>, ValueHolder?>>) = Unit
+    open fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) = Unit
 
-    protected fun <T : Any, I : InputContainer> Slot<T, I>.value(data: Map<Key<I>, Map<Port<*>, ValueHolder?>>): T? =
-        data[key]?.get(port)?.value?.let { v ->
+    protected fun <I : Input, O : Output> Slot<I, O>.value(data: Map<Key<I>, List<PortValue<*>>>): O? =
+        data[key]?.firstOrNull { it.port == port }?.value?.let { v ->
             if (port.type.isInstance(v))
                 port.type.cast(v)
             else null

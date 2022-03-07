@@ -1,19 +1,17 @@
 package dev.zieger.plottingcompose.indicators
 
-import dev.zieger.plottingcompose.definition.Key
-import dev.zieger.plottingcompose.definition.Port
-import dev.zieger.plottingcompose.definition.Slot
-import dev.zieger.plottingcompose.definition.with
+import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
 data class SinglesParameter(
     val length: Int,
-    val candles: Slot<List<ICandle>, ICandle> = Candles.key(length) with Candles.CANDLES
+    val candles: Slot<ICandle, Output.Container<Ohcl.Companion.Ohcl>> =
+        Candles.key(length) with Candles.CANDLES
 )
 
 data class Singles(
     val param: SinglesParameter
-) : Indicator(
+) : Indicator<ICandle>(
     key(param),
     listOf(OPENS, HIGHS, CLOSES, LOWS, VOLUMES), param.candles.key
 ) {
@@ -23,20 +21,20 @@ data class Singles(
         override fun key(param: SinglesParameter) = Key("Singles", param) { Singles(param) }
         fun key(length: Int) = key(SinglesParameter(length))
 
-        val OPENS = Port<List<Double>>("Opens")
-        val HIGHS = Port<List<Double>>("Highs")
-        val CLOSES = Port<List<Double>>("Closes")
-        val LOWS = Port<List<Double>>("Lows")
-        val VOLUMES = Port<List<Double>>("Volumes")
+        val OPENS = Port<Output.Container<Output.Scalar>>("Opens")
+        val HIGHS = Port<Output.Container<Output.Scalar>>("Highs")
+        val CLOSES = Port<Output.Container<Output.Scalar>>("Closes")
+        val LOWS = Port<Output.Container<Output.Scalar>>("Lows")
+        val VOLUMES = Port<Output.Container<Output.Scalar>>("Volumes")
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
         param.candles.value(data)?.let { candles ->
-            set(OPENS, candles.map { it.open })
-            set(HIGHS, candles.map { it.high })
-            set(CLOSES, candles.map { it.close })
-            set(LOWS, candles.map { it.low })
-            set(VOLUMES, candles.map { it.volume })
+            set(OPENS, Output.Container(candles.items.map { Output.Scalar(it.x, it.open) }))
+            set(HIGHS, Output.Container(candles.items.map { Output.Scalar(it.x, it.high) }))
+            set(CLOSES, Output.Container(candles.items.map { Output.Scalar(it.x, it.close) }))
+            set(LOWS, Output.Container(candles.items.map { Output.Scalar(it.x, it.low) }))
+            set(VOLUMES, Output.Container(candles.items.map { Output.Scalar(it.x, it.volume) }))
         }
     }
 }

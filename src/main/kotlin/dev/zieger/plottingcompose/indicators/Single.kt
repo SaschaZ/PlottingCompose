@@ -1,10 +1,11 @@
 package dev.zieger.plottingcompose.indicators
 
 import dev.zieger.plottingcompose.definition.Key
+import dev.zieger.plottingcompose.definition.Output
 import dev.zieger.plottingcompose.definition.Port
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
-class Single : Indicator(
+class Single : Indicator<ICandle>(
     key(),
     listOf(OPEN, HIGH, CLOSE, LOW, VOLUME)
 ) {
@@ -14,18 +15,18 @@ class Single : Indicator(
         override fun key(param: Unit) = Key("Single", param) { Single() }
         fun key() = key(Unit)
 
-        val OPEN = Port<Double>("Open")
-        val HIGH = Port<Double>("High")
-        val CLOSE = Port<Double>("Close")
-        val LOW = Port<Double>("Low")
-        val VOLUME = Port<Double>("Volume")
+        val OPEN = Port<Output.Scalar>("Open")
+        val HIGH = Port<Output.Scalar>("High")
+        val CLOSE = Port<Output.Scalar>("Close")
+        val LOW = Port<Output.Scalar>("Low")
+        val VOLUME = Port<Output.Scalar>("Volume")
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        set(OPEN, value.open)
-        set(HIGH, value.high)
-        set(CLOSE, value.close)
-        set(LOW, value.low)
-        set(VOLUME, value.volume)
+        set(OPEN, Output.Scalar(input.x, input.open))
+        set(HIGH, Output.Scalar(input.x, input.high))
+        set(CLOSE, Output.Scalar(input.x, input.close))
+        set(LOW, Output.Scalar(input.x, input.low))
+        set(VOLUME, Output.Scalar(input.x, input.volume))
     }
 }

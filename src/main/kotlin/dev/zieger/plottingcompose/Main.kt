@@ -40,7 +40,7 @@ fun main() = application {
 
         val ohcl = remember {
             var lastClose: Double? = null
-            (0..150).map { idx ->
+            (0..50000).map { idx ->
                 randomOhcl(idx.toLong(), lastClose).also { c -> lastClose = c.close }
             }.asFlow()
         }

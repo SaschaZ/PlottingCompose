@@ -4,22 +4,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
-import dev.zieger.plottingcompose.definition.InputContainer
-import dev.zieger.plottingcompose.definition.Key
-import dev.zieger.plottingcompose.definition.Port
-import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
-import dev.zieger.plottingcompose.scopes.ValueHolder
 
-class FillBetween<T : InputContainer>(
-    private val between: Pair<Slot<Float, T>, Slot<Float, T>>?,
+class FillBetween<I : Input>(
+    private val between: Pair<Slot<I, Output.Scalar>, Slot<I, Output.Scalar>>?,
     private val color: Color = Color.Cyan.copy(alpha = 0.66f)
-) : PlotStyle<T>(*listOfNotNull(between?.first, between?.second).toTypedArray()) {
-    override fun IPlotDrawScope<T>.drawSeries(data: Map<T, Map<Key<T>, Map<Port<*>, ValueHolder?>>>) {
+) : PlotStyle<I>(*listOfNotNull(between?.first, between?.second).toTypedArray()) {
+    override fun IPlotDrawScope<I>.drawSeries(data: Map<I, Map<Key<I>, List<PortValue<*>>>>) {
         val offsets =
             data.map { (x, d) ->
-                Offset(x.x.toFloat(), between?.first?.value(d) ?: 0f).toScene() to
-                        Offset(x.x.toFloat(), between?.second?.value(d) ?: 0f).toScene()
+                Offset(x.x.toFloat(), between?.first?.value(d)?.scalar?.toFloat() ?: 0f).toScene() to
+                        Offset(x.x.toFloat(), between?.second?.value(d)?.scalar?.toFloat() ?: 0f).toScene()
             }
         val path = Path().apply {
             offsets.forEach { (top, _) ->
