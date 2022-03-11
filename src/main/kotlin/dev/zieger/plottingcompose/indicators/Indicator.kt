@@ -12,8 +12,8 @@ abstract class Indicator<I : Input>(
 
     protected fun <I : Input, O : Output> Slot<I, O>.value(data: Map<Key<I>, List<PortValue<*>>>): O? =
         data[key]?.firstOrNull { it.port == port }?.let { v ->
-            if (port.type.isInstance(v))
-                port.type.cast(v)
+            if (port.type == v.port.type)
+                port.type.cast(v.value)
             else null
         }
 }

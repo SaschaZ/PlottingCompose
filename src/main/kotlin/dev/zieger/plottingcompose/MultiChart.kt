@@ -86,7 +86,10 @@ fun <T : Input> MultiChart(
             false
         })
     ) {
-        ChartDrawScope(definition, this, scopes, chartEnvironment).draw()
+        ChartDrawScope(
+            definition, this@Canvas, ArrayList(scopes),
+            chartEnvironment
+        ).draw()
     }
 }
 

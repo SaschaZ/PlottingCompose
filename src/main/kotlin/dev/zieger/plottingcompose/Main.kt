@@ -13,8 +13,12 @@ import androidx.compose.ui.window.application
 import dev.zieger.plottingcompose.definition.Chart
 import dev.zieger.plottingcompose.definition.ChartDefinition
 import dev.zieger.plottingcompose.definition.with
+import dev.zieger.plottingcompose.indicators.AverageType
+import dev.zieger.plottingcompose.indicators.BollingerBands
 import dev.zieger.plottingcompose.indicators.Ohcl
 import dev.zieger.plottingcompose.styles.CandleSticks
+import dev.zieger.plottingcompose.styles.FillBetween
+import dev.zieger.plottingcompose.styles.Line
 import kotlinx.coroutines.flow.asFlow
 import kotlin.math.absoluteValue
 import kotlin.math.max
@@ -57,7 +61,24 @@ fun main() = application {
             MultiChart(
                 ChartDefinition(
                     Chart(
-                        CandleSticks(Ohcl.key() with Ohcl.OHCL)
+                        Line(
+                            BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.HIGH,
+                            Color.Cyan, 1f
+                        ),
+                        Line(
+                            BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.MID,
+                            Color.Cyan, 1f
+                        ),
+                        Line(
+                            BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.LOW,
+                            Color.Cyan, 1f
+                        ),
+                        FillBetween(
+                            (BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.HIGH) to
+                                    (BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.LOW),
+                            Color.Cyan.copy(alpha = 0.33f)
+                        ),
+                        CandleSticks(Ohcl.key() with Ohcl.OHCL),
                     )
                 ),
                 ohcl

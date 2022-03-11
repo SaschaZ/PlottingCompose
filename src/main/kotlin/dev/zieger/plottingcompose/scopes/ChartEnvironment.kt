@@ -24,7 +24,7 @@ interface IChartEnvironment {
 
 data class ChartEnvironment(
     override val chartSize: MutableState<IntSize> = mutableStateOf(IntSize.Zero),
-    override val translation: MutableState<Offset> = mutableStateOf(Offset.Zero),
+    override val translation: MutableState<Offset> = mutableStateOf(Offset.Zero),//(-20000f, 0f)),
     override val translationOffset: MutableState<Offset> = mutableStateOf(Offset.Zero),
     override val scale: MutableState<Pair<Float, Float>> = mutableStateOf(1f to 1f),
     override val scaleOffset: MutableState<Pair<Float, Float>> = mutableStateOf(0f to 0f),

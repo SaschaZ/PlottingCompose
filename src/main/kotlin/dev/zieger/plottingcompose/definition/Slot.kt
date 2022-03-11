@@ -7,8 +7,16 @@ import kotlin.reflect.KClass
 
 data class Slot<I : Input, O : Output>(val key: Key<I>, val port: Port<O>)
 
-data class Key<I : Input>(val name: String, val param: Any, val create: () -> ProcessingUnit<I>) {
+class Key<I : Input>(val name: String, val param: Any, val create: () -> ProcessingUnit<I>) {
     operator fun invoke(): ProcessingUnit<I> = create()
+
+    override fun equals(other: Any?): Boolean = (other as? Key<*>)?.let { o ->
+        name == o.name && param == o.param
+    } ?: false
+
+    override fun hashCode(): Int = name.hashCode() + param.hashCode()
+
+    override fun toString(): String = "Key($name, $param)"
 }
 
 inline fun <reified O : Output> Port(

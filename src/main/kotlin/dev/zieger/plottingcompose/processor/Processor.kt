@@ -12,7 +12,7 @@ class Processor<I : Input>(private val keys: List<Key<I>>) {
 
     fun process(input: Flow<I>): Flow<ProcessingScope<I>> = flow {
         val units = HashMap<Key<I>, ProcessingUnit<I>>()
-        fun Key<I>.buildUnits(): Unit {
+        fun Key<I>.buildUnits() {
             units.getOrPut(this) { invoke().also { it.dependsOn.forEach { d -> d.buildUnits() } } }
         }
         keys.forEach { it.buildUnits() }

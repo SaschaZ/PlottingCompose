@@ -1,5 +1,6 @@
 package dev.zieger.plottingcompose.styles
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -17,14 +18,13 @@ open class Line<T : Input>(
 
         drawPath(Path().apply {
             data.map { (x, data) ->
-                x.x.toFloat() / widthDivisor to (slot.value(data)?.scalar?.toFloat() ?: 0f) / heightDivisor
-            }
-                .forEach { (x, y) ->
-                    when {
-                        isEmpty -> moveTo(x, y)
-                        else -> lineTo(x, y)
-                    }
+                Offset(x.x.toFloat(), slot.value(data)?.scalar?.toFloat() ?: 0f).toScene()
+            }.forEach { (x, y) ->
+                when {
+                    isEmpty -> moveTo(x, y)
+                    else -> lineTo(x, y)
                 }
+            }
         }, color, color.alpha, Stroke(width))
     }
 }

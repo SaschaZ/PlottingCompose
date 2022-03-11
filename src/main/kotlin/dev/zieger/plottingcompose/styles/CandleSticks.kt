@@ -25,7 +25,6 @@ open class CandleSticks<I : Input>(
 
     override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) {
         val candle = slot.value(data) ?: return
-        println("heightDivisor=$heightDivisor(${System.identityHashCode(this)})  in style")
         val bodySize = Size(
             40 / widthDivisor * xStretchFactor.value,
             (candle.open - candle.close).absoluteValue.toFloat() / heightDivisor

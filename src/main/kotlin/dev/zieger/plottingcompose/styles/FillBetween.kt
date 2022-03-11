@@ -7,10 +7,12 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 
+
 class FillBetween<I : Input>(
     private val between: Pair<Slot<I, Output.Scalar>, Slot<I, Output.Scalar>>?,
     private val color: Color = Color.Cyan.copy(alpha = 0.66f)
 ) : PlotStyle<I>(*listOfNotNull(between?.first, between?.second).toTypedArray()) {
+
     override fun IPlotDrawScope<I>.drawSeries(data: Map<I, Map<Key<I>, List<PortValue<*>>>>) {
         val offsets =
             data.map { (x, d) ->

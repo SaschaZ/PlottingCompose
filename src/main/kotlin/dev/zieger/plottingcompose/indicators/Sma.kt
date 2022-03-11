@@ -3,47 +3,43 @@
 package dev.zieger.plottingcompose.indicators
 
 import dev.zieger.plottingcompose.definition.*
-import dev.zieger.plottingcompose.indicators.Singles.Companion.CLOSES
 import dev.zieger.plottingcompose.processor.ProcessingScope
+import java.util.*
 
 data class SmaParameter(
     val length: Int,
-    val source: Slot<ICandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with CLOSES
+    val source: Slot<ICandle, Output.Scalar> = Single.key() with Single.CLOSE
 )
 
 data class Sma(
     val params: SmaParameter
 ) : Indicator<ICandle>(
-    key(params), listOf(SMA), Singles.key(SinglesParameter(params.length))
+    key(params), listOf(SMA), Single.key()
 ) {
 
     companion object : IndicatorDefinition<SmaParameter>() {
 
         override fun key(param: SmaParameter) = Key("Sma", param) { Sma(param) }
         fun key(
-            length: Int, source: Slot<ICandle, Output.Container<Output.Scalar>> =
-                Singles.key(SinglesParameter(length)) with CLOSES
+            length: Int, source: Slot<ICandle, Output.Scalar> = Single.key() with Single.CLOSE
         ) = key(SmaParameter(length, source))
 
         val SMA = Port<Output.Scalar>("Sma")
     }
 
-    private var average: Double = 0.0
-    private var items: Int = 0
+    private var average = 0f
+    private var items = LinkedList<Float>()
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        params.source.value(data)?.let { closes ->
-            set(SMA, Output.Scalar(input.x, closes.items.map { it.scalar.toDouble() }.average()))
-//            if (items == length) {
-//                average -= closes.first() / length
-//                items--
-//            }
-//
-//            average += closes.last() / length
-//            items++
-//
-//            if (items == length)
-//                set(SMA, average)
+        params.source.value(data)?.scalar?.toFloat()?.let { close ->
+            if (items.size == params.length)
+                average -= items.removeFirst() / params.length
+
+            average += close / params.length
+            items += close
+
+            if (items.size == params.length)
+                set(SMA, Output.Scalar(input.x, average))
         }
     }
 }

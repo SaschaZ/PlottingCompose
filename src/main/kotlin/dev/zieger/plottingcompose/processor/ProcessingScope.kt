@@ -8,11 +8,15 @@ data class ProcessingScope<I : Input>(
     val input: I,
     val data: HashMap<Key<I>, MutableList<PortValue<*>>> = HashMap()
 ) {
-    suspend fun HashMap<Key<I>, ProcessingUnit<I>>.doProcess() {
+    suspend fun Map<Key<I>, ProcessingUnit<I>>.doProcess() {
         forEach { (key, unit) ->
-            unit.dependsOn.associateWith { getOrPut(it) { it() } }.let { HashMap(it) }.doProcess()
-            if (unit.produces.any { it !in (data[key]?.map { m -> m.port } ?: emptyList()) })
-                unit.run { process() }
+            doProcess(key, unit)
         }
+    }
+
+    private suspend fun Map<Key<I>, ProcessingUnit<I>>.doProcess(key: Key<I>, unit: ProcessingUnit<I>) {
+        unit.dependsOn.forEach { doProcess(it, get(it)!!) }
+        if (unit.produces.any { it !in (data[key]?.map { m -> m.port } ?: emptyList()) })
+            unit.run { process() }
     }
 }

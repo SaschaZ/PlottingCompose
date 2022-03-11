@@ -33,15 +33,15 @@ data class BollingerBands(
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        (StdDev.key(param.length) with StdDev.STD_DEV).value(data)?.let { stdDev ->
+        (StdDev.key(param.length) with StdDev.STD_DEV).value(data)?.scalar?.toDouble()?.let { stdDev ->
             (param.averageType(param.length) with when (param.averageType) {
                 AverageType.SMA -> Sma.SMA
                 AverageType.EMA -> Ema.EMA
-            }).value(data)?.let { avg ->
-                val width = stdDev.scalar.toDouble() * param.stdDevFactor
-                set(HIGH, Output.Scalar(input.x, avg.scalar.toDouble() + width))
-                set(MID, avg)
-                set(LOW, Output.Scalar(input.x, avg.scalar.toDouble() - width))
+            }).value(data)?.scalar?.toDouble()?.let { avg ->
+                val width = stdDev * param.stdDevFactor
+                set(HIGH, Output.Scalar(input.x, avg + width))
+                set(MID, Output.Scalar(input.x, avg))
+                set(LOW, Output.Scalar(input.x, avg - width))
             }
         }
     }
