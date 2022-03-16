@@ -19,6 +19,7 @@ import dev.zieger.plottingcompose.indicators.Ohcl
 import dev.zieger.plottingcompose.styles.CandleSticks
 import dev.zieger.plottingcompose.styles.FillBetween
 import dev.zieger.plottingcompose.styles.Line
+import dev.zieger.plottingcompose.styles.SingleFocusable
 import kotlinx.coroutines.flow.asFlow
 import kotlin.math.absoluteValue
 import kotlin.math.max
@@ -63,22 +64,32 @@ fun main() = application {
                     Chart(
                         Line(
                             BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.HIGH,
-                            Color.Cyan, 1f
+                            Color.Yellow.copy(alpha = 0.5f), 1f
                         ),
                         Line(
                             BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.MID,
-                            Color.Cyan, 1f
+                            Color.Yellow.copy(alpha = 0.5f), 1f
                         ),
                         Line(
                             BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.LOW,
-                            Color.Cyan, 1f
+                            Color(0xFF9900).copy(alpha = 0.5f), 1f
                         ),
                         FillBetween(
                             (BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.HIGH) to
                                     (BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.LOW),
-                            Color.Cyan.copy(alpha = 0.33f)
+                            Color.Yellow.copy(alpha = 0.2f)
                         ),
-                        CandleSticks(Ohcl.key() with Ohcl.OHCL),
+                        SingleFocusable(
+                            CandleSticks(
+                                Ohcl.key() with Ohcl.OHCL,
+                                positiveColor = Color(0xFF39a59a),
+                                negativeColor = Color(0xFFe95751)
+                            ), CandleSticks(
+                                Ohcl.key() with Ohcl.OHCL,
+                                positiveColor = Color(0xFF00FF00),
+                                negativeColor = Color(0xFFFF0000)
+                            )
+                        )
                     )
                 ),
                 ohcl

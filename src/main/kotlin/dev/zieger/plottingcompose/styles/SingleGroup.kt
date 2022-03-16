@@ -11,6 +11,6 @@ open class SingleGroup<I : Input>(vararg style: PlotStyle<I>) :
 
     private val styles: List<PlotStyle<I>> = style.toList()
 
-    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) =
-        styles.forEach { it.run { drawSingle(value, data) } }
+    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>, isFocused: Boolean) =
+        styles.forEach { it.run { drawSingle(value, data, isFocused) } }
 }

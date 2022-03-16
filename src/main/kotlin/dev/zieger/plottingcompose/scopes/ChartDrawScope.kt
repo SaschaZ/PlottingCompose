@@ -7,7 +7,7 @@ import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
 
-interface IChartDrawScope<T : Input> : DrawScope, IChartEnvironment, IDrawScopeRegionHolder {
+interface IChartDrawScope<T : Input> : DrawScope, IChartEnvironment {
     val definition: ChartDefinition<T>
     val scopes: List<ProcessingScope<T>>
 
@@ -20,11 +20,8 @@ fun <T : Input> ChartDrawScope(
     drawScope: DrawScope,
     scopes: List<ProcessingScope<T>>,
     chartEnvironment: IChartEnvironment,
-    regionHolder: DrawScopeRegionHolder = DrawScopeRegionHolder(),
-    drawScopeWrapper: DrawScopeWrapper = DrawScopeWrapper(drawScope, regionHolder),
 ): IChartDrawScope<T> = object : IChartDrawScope<T>,
-    DrawScope by drawScopeWrapper,
-    IDrawScopeRegionHolder by regionHolder,
+    DrawScope by drawScope,
     IChartEnvironment by chartEnvironment {
 
     override val definition: ChartDefinition<T> = definition

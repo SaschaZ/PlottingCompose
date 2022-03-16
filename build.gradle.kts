@@ -12,10 +12,12 @@ repositories {
     google()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    maven("https://jitpack.io")
 }
 
 dependencies {
     implementation(compose.desktop.currentOs)
+    implementation("dev.zieger.utils:time:3.0.13")
 }
 
 tasks.withType<KotlinCompile>() {

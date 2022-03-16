@@ -40,6 +40,9 @@ data class Sma(
 
             if (items.size == params.length)
                 set(SMA, Output.Scalar(input.x, average))
+            else
+                set(SMA, Output.Scalar(input.x, close))
+
         }
     }
 }

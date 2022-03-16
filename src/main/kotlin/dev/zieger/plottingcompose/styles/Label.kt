@@ -60,7 +60,7 @@ data class Label<I : Input>(
     }
 ) : PlotStyle<I>(ySlot, contentSlot) {
 
-    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) {
+    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>, isFocused: Boolean) {
         ySlot.value(data)?.scalar?.toFloat()?.let { y ->
             contentSlot.value(data)?.label?.let { c ->
                 val font = Font(null, fontSize)

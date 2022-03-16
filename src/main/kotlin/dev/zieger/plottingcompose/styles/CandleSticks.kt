@@ -20,10 +20,12 @@ open class CandleSticks<I : Input>(
     private val positiveColor: Color = Color.Green,
     private val negativeColor: Color = Color.Red,
     private val lineColor: Color = Color.White,
-    private val lineWidth: Float = 1f
+    private val lineWidth: Float = 0.5f
 ) : PlotStyle<I>(slot) {
 
-    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) {
+    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>, isFocused: Boolean) {
+        if (heightDivisor.run { isInfinite() || isNaN() }) return
+
         val candle = slot.value(data) ?: return
         val bodySize = Size(
             40 / widthDivisor * xStretchFactor.value,
@@ -46,7 +48,7 @@ open class CandleSticks<I : Input>(
             topLeft,
             bodySize,
             alpha = (lineColor.alpha * (scale.value.x - 1f)).coerceIn(0f..1f),
-            style = Stroke(lineWidth / scale.value.x)
+            style = Stroke(lineWidth * widthDivisor.coerceIn(0f..1f))
         )
 
         val topMid = topLeft.copy(topLeft.x + bodySize.width / 2)
@@ -54,14 +56,14 @@ open class CandleSticks<I : Input>(
             lineColor,
             topMid,
             topMid.copy(y = plotRect.bottom - candle.high.toFloat() / heightDivisor),
-            lineWidth / scale.value.x, alpha = lineColor.alpha
+            lineWidth * widthDivisor.coerceIn(0f..1f), alpha = lineColor.alpha
         )
         val bottomMid = Offset(topMid.x, plotRect.bottom - min(candle.open, candle.close).toFloat() / heightDivisor)
         drawLine(
             lineColor,
             bottomMid,
             bottomMid.copy(y = plotRect.bottom - candle.low.toFloat() / heightDivisor),
-            lineWidth / scale.value.x, alpha = lineColor.alpha
+            lineWidth * widthDivisor.coerceIn(0f..1f), alpha = lineColor.alpha
         )
     }
 }

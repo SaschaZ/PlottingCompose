@@ -16,7 +16,7 @@ import java.text.DecimalFormat
 class ChartDefinition<T : Input>(
     vararg chart: Chart<T>,
     val title: ChartTitle = ChartTitle(""),
-    val margin: Margin = Margin(0.05f, 0.05f),
+    val margin: Margin = Margin({ 25.dp }, { 25.dp }),
     val backgroundColor: Color = Color.Black
 ) {
     val charts: List<Chart<T>> = chart.toList()
@@ -51,7 +51,7 @@ class Margin(
 
 class Chart<T : Input>(
     vararg plot: PlotStyle<T>,
-    val margin: Margin = Margin(0.005f, 0.005f),
+    val margin: Margin = Margin(0f, 0f),
     val verticalWeight: Float = 1f,
     val tickLength: IntSize.() -> Dp = { 15.dp },
     val yTicks: IChartEnvironment.(yRange: ClosedRange<Float>) -> Map<Float, String> = {
@@ -60,11 +60,11 @@ class Chart<T : Input>(
     val xTicks: IChartEnvironment.(xRange: ClosedRange<Float>) -> Map<Float, String> = {
         TickHelper.ticks(it, chartSize.value.width, scale.value.x, 100f)
     },
-    val backgroundColor: Color = Color.DarkGray,
-    val borderColor: Color = Color.White,
-    val gridColor: Color = Color.Gray,
-    val tickColor: Color = Color.White,
-    val tickLabelColor: Color = Color.White
+    val backgroundColor: Color = Color(0xFF171b26),
+    val borderColor: Color = Color.DarkGray,
+    val gridColor: Color = Color(0x11FFFFFF),
+    val tickColor: Color = Color.Gray,
+    val tickLabelColor: Color = Color.Gray
 ) {
     companion object {
         private val decimalFormat = DecimalFormat("##,###.###")
@@ -87,7 +87,7 @@ object TickHelper {
     ): Map<Float, String> {
         val valueLength = valueRange.run { endInclusive - start }
         val pSize = chartSize / tickLength
-        val tickHeight = valueLength / pSize / scale
+        val tickHeight = valueLength / pSize// / scale
         return if (!tickHeight.isInfinite() && !tickHeight.isNaN()) {
             val scaledTickLength = tickHeight.toBigDecimal().round(MathContext(1, RoundingMode.HALF_UP)).toFloat()
             (-100..(valueLength / scaledTickLength).toInt().plus(100) step 1)

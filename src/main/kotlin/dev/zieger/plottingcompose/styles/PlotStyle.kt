@@ -14,13 +14,11 @@ open class PlotStyle<I : Input>(vararg slot: Slot<I, *>) {
 
     open fun IPlotDrawScope<I>.drawSeries(data: Map<I, Map<Key<I>, List<PortValue<*>>>>) {
         data.entries.forEachIndexed { idx, (key, data) ->
-            activeIdx = idx
-            drawSingle(key, data)
+            drawSingle(key, data, focusedItemIdx.value?.itemIdx == idx)
         }
-        activeIdx = -1
     }
 
-    open fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) = Unit
+    open fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>, isFocused: Boolean) = Unit
 
     protected fun <I : Input, O : Output> Slot<I, O>.value(data: Map<Key<I>, List<PortValue<*>>>): O? =
         data[key]?.firstOrNull { it.port == port }?.value?.let { v ->

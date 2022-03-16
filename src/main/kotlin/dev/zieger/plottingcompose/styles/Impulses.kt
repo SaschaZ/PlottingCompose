@@ -11,7 +11,7 @@ class Impulses<I : Input>(
     private val slot: Slot<I, Output.Scalar>,
     private val color: Color = Color.Cyan
 ) : PlotStyle<I>(slot) {
-    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>) {
+    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>, isFocused: Boolean) {
         Offset(value.x.toFloat(), slot.value(data)?.scalar?.toFloat() ?: 0f).toScene().let { offset ->
             val size = Size(40 / widthDivisor * xStretchFactor.value, offset.y)
             if (size.width < 0 || size.height < 0) return
