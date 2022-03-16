@@ -33,9 +33,7 @@ interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, ISt
 
     val widthDivisor: Float
 
-    val yLabelWidth: Float
     val yLabelHeight: Float
-    val xLabelHeight: Float
     val xLabelWidth: Float
     fun Offset.toScene(): Offset
 
@@ -105,21 +103,24 @@ fun <T : Input> PlotDrawScope(
         }
 
     override val xValueRange: ClosedRange<Float> = chartData.xValueRange()
-    override val xTicks: Map<Float, String> = chart.xTicks(this, xValueRange)
+    override val xTicks: Map<Float, String> = chart.xTicks(this, xValueRange).also { xTicks ->
+        xLabelHeight.value =
+            (xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.size(20f)?.height)?.toDouble() ?: 0.0
+    }
     override val xLabelWidth = xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.size(20f)?.width ?: 0f
-    override val xLabelHeight =
-        20f//xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.size(20f)?.height ?: 0f
 
     override val yValueRange: ClosedRange<Float> = chartData.yValueRange().also {
         heightDivisor.value = it.range() / plotRect.height
     }
-    override val yTicks: Map<Float, String> = chart.yTicks(this, yValueRange)
-    override val yLabelWidth = 80f//yTicks.values.maxByOrNull { it.length }?.size(20f)?.width ?: 0f
+    override val yTicks: Map<Float, String> = chart.yTicks(this, yValueRange).also { yTicks ->
+        yLabelWidth.value = (yTicks.values.maxByOrNull { it.length }?.size(20f)?.width)?.toDouble() ?: 0.0
+    }
     override val yLabelHeight = yTicks.values.maxByOrNull { it.length }?.size(20f)?.height ?: 0f
 
     override val yLabelRect: Rect = chartRect.run {
         Rect(
-            right - yLabelWidth, top, right, bottom - xLabelHeight - chart.tickLength(chartSize.value).value / 2f
+            right - yLabelWidth.value.toFloat(), top, right,
+            bottom - xLabelHeight.value.toFloat() - chart.tickLength(chartSize.value).value / 2f
         )
     }
     override val yTickRect: Rect = yLabelRect.run {
@@ -129,7 +130,7 @@ fun <T : Input> PlotDrawScope(
     }
     override val xLabelRect: Rect = chartRect.run {
         Rect(
-            left, bottom - xLabelHeight, right - yLabelWidth, bottom
+            left, bottom - xLabelHeight.value.toFloat(), right - yLabelWidth.value.toFloat(), bottom
         )
     }
     override val xTickRect: Rect = xLabelRect.run {
