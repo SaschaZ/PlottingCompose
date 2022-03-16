@@ -51,7 +51,7 @@ class Margin(
 
 class Chart<T : Input>(
     vararg plot: PlotStyle<T>,
-    val margin: Margin = Margin(0f, 0f),
+    val margin: Margin = Margin({ 0.dp }, { 20.dp }),
     val verticalWeight: Float = 1f,
     val tickLength: IntSize.() -> Dp = { 15.dp },
     val yTicks: IChartEnvironment.(yRange: ClosedRange<Float>) -> Map<Float, String> = {
