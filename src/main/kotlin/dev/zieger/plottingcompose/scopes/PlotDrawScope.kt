@@ -4,8 +4,6 @@ package dev.zieger.plottingcompose.scopes
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import dev.zieger.plottingcompose.FocusedInfo
-import dev.zieger.plottingcompose.IStates
 import dev.zieger.plottingcompose.definition.Chart
 import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.definition.Key
@@ -34,7 +32,6 @@ interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, ISt
     val xTicks: Map<Float, String>
 
     val widthDivisor: Float
-    val heightDivisor: Float
 
     val yLabelWidth: Float
     val yLabelHeight: Float
@@ -113,12 +110,12 @@ fun <T : Input> PlotDrawScope(
     override val xLabelHeight =
         20f//xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.size(20f)?.height ?: 0f
 
-    override val yValueRange: ClosedRange<Float> = chartData.yValueRange()
+    override val yValueRange: ClosedRange<Float> = chartData.yValueRange().also {
+        heightDivisor.value = it.range() / plotRect.height
+    }
     override val yTicks: Map<Float, String> = chart.yTicks(this, yValueRange)
     override val yLabelWidth = 80f//yTicks.values.maxByOrNull { it.length }?.size(20f)?.width ?: 0f
     override val yLabelHeight = yTicks.values.maxByOrNull { it.length }?.size(20f)?.height ?: 0f
-
-    override val heightDivisor: Float = yValueRange.range().toFloat() / plotRect.height
 
     override val yLabelRect: Rect = chartRect.run {
         Rect(
@@ -142,10 +139,10 @@ fun <T : Input> PlotDrawScope(
     }
 
     override val visibleYPixelRange: ClosedRange<Float> =
-        yValueRange.run { start / heightDivisor..endInclusive / heightDivisor }
+        yValueRange.run { (start / (range() / plotRect.height)).toFloat()..(endInclusive / (range() / plotRect.height)).toFloat() }
 
     override fun Offset.toScene(): Offset =
-        Offset(plotRect.left + x / widthDivisor, plotRect.bottom - y / heightDivisor)
+        Offset(plotRect.left + x / widthDivisor, plotRect.bottom - y / heightDivisor.value.toFloat())
 }
 
 private operator fun ClosedRange<Float>.minus(value: Float): ClosedRange<Float> =

@@ -24,16 +24,16 @@ open class CandleSticks<I : Input>(
 ) : PlotStyle<I>(slot) {
 
     override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>, isFocused: Boolean) {
-        if (heightDivisor.run { isInfinite() || isNaN() }) return
+        if (heightDivisor.value.run { isInfinite() || isNaN() }) return
 
         val candle = slot.value(data) ?: return
         val bodySize = Size(
             40 / widthDivisor * xStretchFactor.value,
-            (candle.open - candle.close).absoluteValue.toFloat() / heightDivisor
+            (candle.open - candle.close).absoluteValue.toFloat() / heightDivisor.value.toFloat()
         )
         val topLeft = Offset(
             plotRect.left + (candle.openTime / widthDivisor - bodySize.width / 2),
-            plotRect.bottom - max(candle.open, candle.close).toFloat() / heightDivisor
+            plotRect.bottom - max(candle.open, candle.close).toFloat() / heightDivisor.value.toFloat()
         )
 
         val color = if (candle.open <= candle.close) positiveColor else negativeColor
@@ -55,14 +55,15 @@ open class CandleSticks<I : Input>(
         drawLine(
             lineColor,
             topMid,
-            topMid.copy(y = plotRect.bottom - candle.high.toFloat() / heightDivisor),
+            topMid.copy(y = plotRect.bottom - candle.high.toFloat() / heightDivisor.value.toFloat()),
             lineWidth * widthDivisor.coerceIn(0f..1f), alpha = lineColor.alpha
         )
-        val bottomMid = Offset(topMid.x, plotRect.bottom - min(candle.open, candle.close).toFloat() / heightDivisor)
+        val bottomMid =
+            Offset(topMid.x, plotRect.bottom - min(candle.open, candle.close).toFloat() / heightDivisor.value.toFloat())
         drawLine(
             lineColor,
             bottomMid,
-            bottomMid.copy(y = plotRect.bottom - candle.low.toFloat() / heightDivisor),
+            bottomMid.copy(y = plotRect.bottom - candle.low.toFloat() / heightDivisor.value.toFloat()),
             lineWidth * widthDivisor.coerceIn(0f..1f), alpha = lineColor.alpha
         )
     }
