@@ -18,6 +18,11 @@ repositories {
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation("dev.zieger.utils:time:3.0.13")
+
+    val koTestVersion: String by project
+    testImplementation("io.kotest:kotest-runner-junit5:$koTestVersion")
+    testImplementation("io.kotest:kotest-assertions-core:$koTestVersion")
+    testImplementation("io.kotest:kotest-property:$koTestVersion")
 }
 
 tasks.withType<KotlinCompile>() {

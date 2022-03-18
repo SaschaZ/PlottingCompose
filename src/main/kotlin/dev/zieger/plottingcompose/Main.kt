@@ -18,7 +18,7 @@ import dev.zieger.plottingcompose.indicators.BollingerBands
 import dev.zieger.plottingcompose.indicators.Ohcl
 import dev.zieger.plottingcompose.styles.CandleSticks
 import dev.zieger.plottingcompose.styles.FillBetween
-import dev.zieger.plottingcompose.styles.Line
+import dev.zieger.plottingcompose.styles.LineSeries
 import dev.zieger.plottingcompose.styles.SingleFocusable
 import kotlinx.coroutines.flow.asFlow
 import kotlin.math.absoluteValue
@@ -62,17 +62,17 @@ fun main() = application {
             MultiChart(
                 ChartDefinition(
                     Chart(
-                        Line(
+                        LineSeries(
                             BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.HIGH,
                             Color.Yellow.copy(alpha = 0.5f), 1f
                         ),
-                        Line(
+                        LineSeries(
                             BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.MID,
                             Color.Yellow.copy(alpha = 0.5f), 1f
                         ),
-                        Line(
+                        LineSeries(
                             BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.LOW,
-                            Color(0xFF9900).copy(alpha = 0.5f), 1f
+                            Color(0xFF7700).copy(alpha = 0.5f), 1f
                         ),
                         FillBetween(
                             (BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.HIGH) to
@@ -89,8 +89,13 @@ fun main() = application {
                                 positiveColor = Color(0xFF00FF00),
                                 negativeColor = Color(0xFFFF0000)
                             )
-                        )
-                    )
+                        ),
+                        verticalWeight = 0.8f
+                    ),
+//                    Chart(
+//                        Impulses(Single.key() with Single.VOLUME, Color.Red),
+//                        verticalWeight = 0.2f
+//                    )
                 ),
                 ohcl
             )

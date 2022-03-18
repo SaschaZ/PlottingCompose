@@ -52,16 +52,16 @@ fun <T : Input> PlotDrawScope(
 
     override val plotBorderRect: Rect = chartRect.run {
         Rect(
-            left, top, right - 80f - chart.tickLength(chartSize.value).value / 2f,
-            bottom - 20f - chart.tickLength(chartSize.value).value / 2f
+            left, top, right - yLabelWidth.value.toFloat() - chart.tickLength(chartSize.value).value / 2f,
+            bottom - xLabelHeight.value.toFloat() - chart.tickLength(chartSize.value).value / 2f
         )
     }
     override val plotRect: Rect = plotBorderRect.run {
         Rect(
             left + chart.margin.left.invoke(chartSize.value).value,
-            top + chart.margin.top.invoke(chartSize.value).value,
+            top,
             right - chart.margin.right.invoke(chartSize.value).value,
-            bottom - chart.margin.bottom.invoke(chartSize.value).value
+            bottom
         )
     }
 
@@ -105,7 +105,8 @@ fun <T : Input> PlotDrawScope(
     override val xValueRange: ClosedRange<Float> = chartData.xValueRange()
     override val xTicks: Map<Float, String> = chart.xTicks(this, xValueRange).also { xTicks ->
         xLabelHeight.value =
-            (xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.size(20f)?.height)?.toDouble() ?: 0.0
+            (xTicks.values.toList().nullWhenEmpty()
+                ?.run { get(size / 2) }?.size(20f)?.height)?.toDouble() ?: 0.0
     }
     override val xLabelWidth = xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.size(20f)?.width ?: 0f
 
@@ -140,10 +141,38 @@ fun <T : Input> PlotDrawScope(
     }
 
     override val visibleYPixelRange: ClosedRange<Float> =
-        yValueRange.run { (start / (range() / plotRect.height)).toFloat()..(endInclusive / (range() / plotRect.height)).toFloat() }
+        yValueRange.run { start / heightDivisor.value.toFloat()..endInclusive / heightDivisor.value.toFloat() }
 
     override fun Offset.toScene(): Offset =
         Offset(plotRect.left + x / widthDivisor, plotRect.bottom - y / heightDivisor.value.toFloat())
+
+    private fun <I : Input> Map<I, Map<Key<I>, List<PortValue<*>>>>.yValueRange(): ClosedRange<Float> {
+        if (isEmpty() || flatMap { it.value.values }.isEmpty()) return 0f..0f
+
+        val yMin = minOf {
+            it.value.minOf { i2 ->
+                i2.value.filter { (port, _) -> port.includeIntoScaling }.minOf { (_, value) ->
+                    value.yRange.start
+                }
+            }
+        }.toFloat()
+        val yMax = maxOf {
+            it.value.maxOf { i2 ->
+                i2.value.filter { (port, _) -> port.includeIntoScaling }.maxOf { (_, value) ->
+                    value.yRange.endInclusive
+                }
+            }
+        }.toFloat()
+        return yMin..yMax
+    }
+
+    private fun <T : Input> Map<T, Map<Key<T>, List<PortValue<*>>>>.xValueRange(): ClosedRange<Float> {
+        if (isEmpty()) return 0f..0f
+
+        val xMin = minOf { it.key.x.toDouble() }.toFloat()
+        val xMax = maxOf { it.key.x.toDouble() }.toFloat()
+        return xMin..xMax
+    }
 }
 
 private operator fun ClosedRange<Float>.minus(value: Float): ClosedRange<Float> =
@@ -163,35 +192,6 @@ private fun <I : Input> List<ProcessingScope<I>>.chartData(chart: Chart<I>): Map
                 key to value.filter { portValue -> portValue.port in ports }
             }.toMap()
     }
-}
-
-private fun <I : Input> Map<I, Map<Key<I>, List<PortValue<*>>>>.yValueRange(xValueRange: ClosedRange<Float>? = null): ClosedRange<Float> {
-    val inRange = xValueRange?.let { filterKeys { it.x.toDouble() in xValueRange } } ?: this
-    if (inRange.isEmpty() || inRange.flatMap { it.value.values }.isEmpty()) return 0f..0f
-
-    val yMin = inRange.minOf {
-        it.value.minOf { i2 ->
-            i2.value.filter { (port, _) -> port.includeIntoScaling }.minOf { (_, value) ->
-                value.yRange.start
-            }
-        }
-    }.toFloat()
-    val yMax = inRange.maxOf {
-        it.value.maxOf { i2 ->
-            i2.value.filter { (port, _) -> port.includeIntoScaling }.maxOf { (_, value) ->
-                value.yRange.endInclusive
-            }
-        }
-    }.toFloat()
-    return yMin..yMax
-}
-
-private fun <T : Input> Map<T, Map<Key<T>, List<PortValue<*>>>>.xValueRange(): ClosedRange<Float> {
-    if (isEmpty()) return 0f..0f
-
-    val xMin = minOf { it.key.x.toDouble() }.toFloat()
-    val xMax = maxOf { it.key.x.toDouble() }.toFloat()
-    return xMin..xMax
 }
 
 fun String.size(fontSize: Float): TextLine {

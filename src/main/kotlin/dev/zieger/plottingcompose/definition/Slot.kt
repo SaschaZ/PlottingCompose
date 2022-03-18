@@ -47,9 +47,19 @@ sealed class Output {
         override val yRange: ClosedRange<Double> get() = scalar.toDouble()..scalar.toDouble()
     }
 
+    open class Offset(open val offset: androidx.compose.ui.geometry.Offset) : Output() {
+        override val xRange: ClosedRange<Double> = offset.x.toDouble()..offset.x.toDouble()
+        override val yRange: ClosedRange<Double> = offset.y.toDouble()..offset.y.toDouble()
+    }
+
     open class Vector(open val x: Number, open val vector: Collection<Number>) : Output() {
         override val xRange: ClosedRange<Double> get() = x.toDouble()..x.toDouble()
         override val yRange: ClosedRange<Double> get() = vector.minOf { it.toDouble() }..vector.maxOf { it.toDouble() }
+    }
+
+    open class OffsetVector(open val offsets: Collection<androidx.compose.ui.geometry.Offset>) : Output() {
+        override val xRange: ClosedRange<Double> = offsets.minOf { it.x.toDouble() }..offsets.maxOf { it.x.toDouble() }
+        override val yRange: ClosedRange<Double> = offsets.minOf { it.y.toDouble() }..offsets.maxOf { it.y.toDouble() }
     }
 
     open class Label(x: Number, y: Number, val label: String) : Scalar(x, y)

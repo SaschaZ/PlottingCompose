@@ -60,7 +60,7 @@ class Chart<T : Input>(
     val xTicks: IChartEnvironment.(xRange: ClosedRange<Float>) -> Map<Float, String> = {
         TickHelper.ticks(it, chartSize.value.width, scale.value.x, 100f)
     },
-    val backgroundColor: Color = Color(0xFF171b26),
+    val backgroundColor: Color = Color(0xFF151924),
     val borderColor: Color = Color.DarkGray,
     val gridColor: Color = Color(0x11FFFFFF),
     val tickColor: Color = Color.Gray,

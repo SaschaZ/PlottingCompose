@@ -1,12 +1,15 @@
 @file:OptIn(ExperimentalComposeUiApi::class)
-@file:Suppress("EXPERIMENTAL_IS_NOT_ENABLED", "MemberVisibilityCanBePrivate")
+@file:Suppress("EXPERIMENTAL_IS_NOT_ENABLED", "MemberVisibilityCanBePrivate", "LeakingThis", "FunctionName")
 
 package dev.zieger.plottingcompose
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -25,12 +28,9 @@ import dev.zieger.plottingcompose.definition.keys
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.processor.Processor
 import dev.zieger.plottingcompose.scopes.*
-import dev.zieger.utils.time.ITimeSpan
-import dev.zieger.utils.time.TimeStamp
-import dev.zieger.utils.time.millis
-import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlin.math.pow
 
 
@@ -221,74 +221,13 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
         }
     }
 
-    translationOffsetY.value = visibleYPixelRange.start.toDouble()
-    translationOffset.value = Offset(translationOffset.value.x, translationOffsetY.value.toFloat())
+    translationOffset.value = Offset(translationOffset.value.x, visibleYPixelRange.start)
 
     println(
-        "visibleXPixelRange=$visibleXPixelRange; visibleXValueRange=$xValueRange\n" +
-                "visibleYPixelRange=$visibleYPixelRange; visibleYValueRange=$yValueRange\n" +
-                "translationOffset=${translationOffset.value}; finalTranslation=$finalTranslation\n" +
-                "scaleCenter=${scaleCenter.value}; scale=${scale.value}\n" +
-                "heightDivisor=${heightDivisor.value.toFloat()}; widthDivisor=$widthDivisor"
+//        "visibleXPixelRange=$visibleXPixelRange; visibleXValueRange=$xValueRange\n" +
+//                "visibleYPixelRange=$visibleYPixelRange; visibleYValueRange=$yValueRange\n" +
+//                "translationOffset=${translationOffset.value}; finalTranslation=$finalTranslation\n" +
+//                "scaleCenter=${scaleCenter.value}; scale=${scale.value}\n" +
+        "heightDivisor=${heightDivisor.value.toFloat()}; widthDivisor=$widthDivisor"
     )
-}
-
-open class DoubleAnimator(
-    initial: Double,
-    private val scope: CoroutineScope,
-    protected val duration: ITimeSpan = 300.millis,
-    private val interpolatorFactors: (ClosedRange<Double>) -> Interpolator = { LinearInterpolator(it) },
-    private val block: AnimationScope.(Double) -> Unit
-) {
-
-    private var currentValue: Double = initial
-    private var currentTaretValue: Double = initial
-    private var currentAnimation: Job? = null
-
-    fun animateTo(value: Double) {
-        if (value == currentTaretValue) return
-
-        currentTaretValue = value
-        currentAnimation?.cancel()
-        currentAnimation = scope.launch {
-            val startedAt = TimeStamp()
-            val interpolator = interpolatorFactors(currentValue..value)
-            block(AnimationScope(0.0, duration, 0.millis), interpolator.interpolate(0.0))
-            do {
-                delay(33)
-                val runtime = TimeStamp() - startedAt
-                val relT = (runtime / duration).coerceIn(0.0..1.0)
-                currentValue = interpolator.interpolate(relT)
-                block(AnimationScope(relT, duration, runtime), currentValue)
-            } while (runtime < duration && isActive)
-        }
-    }
-
-    data class AnimationScope(val relT: Double, val duration: ITimeSpan, val runtime: ITimeSpan)
-}
-
-fun mutableDoubleStateAnimated(
-    initial: Double,
-    scope: CoroutineScope,
-    duration: ITimeSpan = 600.millis,
-    interpolator: (ClosedRange<Double>) -> Interpolator = { LinearInterpolator(it) }
-): MutableState<Double> = object : MutableState<Double> {
-
-    private val internal = mutableStateOf(initial)
-    private val animator = DoubleAnimator(initial, scope, duration, interpolator) { internal.value = it }
-
-    override var value: Double
-        get() = internal.value
-        set(value) = animator.animateTo(value)
-
-    override fun component1(): Double = value
-    override fun component2(): (Double) -> Unit = { value = it }
-}
-
-abstract class Interpolator(protected val valueRange: ClosedRange<Double>) {
-    abstract fun interpolate(relT: Double): Double
-}
-
-open class LinearInterpolator(valueRange: ClosedRange<Double>) : Interpolator(valueRange) {
-    override fun interpolate(relT: Double): Double = valueRange.start + valueRange.range() * relT
 }
