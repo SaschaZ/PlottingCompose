@@ -114,8 +114,14 @@ private operator fun Offset.div(value: Pair<Float, Float>): Offset = copy(x / va
 
 fun <T : Input> IChartDrawScope<T>.draw(states: States) {
     drawRect(definition.backgroundColor, rootRect)
+    var top = 0f
     definition.charts.forEach { chart ->
-        PlotDrawScope(chart, this, states).draw()
+        val height = chartRect.height * chart.verticalWeight
+        val rect = chartRect.copy(top = chartRect.top + top, bottom = chartRect.top + top + height)
+        clipRect(rect) {
+            PlotDrawScope(chart, this, states, rect).draw()
+        }
+        top += height
     }
 }
 

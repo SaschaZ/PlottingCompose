@@ -1,8 +1,10 @@
 @file:Suppress("MemberVisibilityCanBePrivate")
 
-package dev.zieger.plottingcompose.indicators
+package dev.zieger.plottingcompose.indicators.candles
 
 import dev.zieger.plottingcompose.definition.*
+import dev.zieger.plottingcompose.indicators.Indicator
+import dev.zieger.plottingcompose.indicators.IndicatorDefinition
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import java.util.*
 

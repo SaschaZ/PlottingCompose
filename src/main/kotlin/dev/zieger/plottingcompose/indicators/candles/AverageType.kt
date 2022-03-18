@@ -1,4 +1,4 @@
-package dev.zieger.plottingcompose.indicators
+package dev.zieger.plottingcompose.indicators.candles
 
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Output

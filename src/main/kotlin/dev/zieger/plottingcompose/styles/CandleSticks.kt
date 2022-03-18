@@ -8,7 +8,7 @@ import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.PortValue
 import dev.zieger.plottingcompose.definition.Slot
-import dev.zieger.plottingcompose.indicators.Ohcl
+import dev.zieger.plottingcompose.indicators.candles.Ohcl
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 import dev.zieger.plottingcompose.x
 import kotlin.math.absoluteValue

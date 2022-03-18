@@ -13,13 +13,11 @@ import androidx.compose.ui.window.application
 import dev.zieger.plottingcompose.definition.Chart
 import dev.zieger.plottingcompose.definition.ChartDefinition
 import dev.zieger.plottingcompose.definition.with
-import dev.zieger.plottingcompose.indicators.AverageType
-import dev.zieger.plottingcompose.indicators.BollingerBands
-import dev.zieger.plottingcompose.indicators.Ohcl
-import dev.zieger.plottingcompose.styles.CandleSticks
-import dev.zieger.plottingcompose.styles.FillBetween
-import dev.zieger.plottingcompose.styles.LineSeries
-import dev.zieger.plottingcompose.styles.SingleFocusable
+import dev.zieger.plottingcompose.indicators.candles.AverageType
+import dev.zieger.plottingcompose.indicators.candles.BollingerBands
+import dev.zieger.plottingcompose.indicators.candles.Ohcl
+import dev.zieger.plottingcompose.indicators.candles.Single
+import dev.zieger.plottingcompose.styles.*
 import kotlinx.coroutines.flow.asFlow
 import kotlin.math.absoluteValue
 import kotlin.math.max
@@ -92,10 +90,10 @@ fun main() = application {
                         ),
                         verticalWeight = 0.8f
                     ),
-//                    Chart(
-//                        Impulses(Single.key() with Single.VOLUME, Color.Red),
-//                        verticalWeight = 0.2f
-//                    )
+                    Chart(
+                        Impulses(Single.key() with Single.VOLUME, Color.Red),
+                        verticalWeight = 0.2f
+                    )
                 ),
                 ohcl
             )

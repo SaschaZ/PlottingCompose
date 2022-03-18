@@ -1,9 +1,11 @@
-package dev.zieger.plottingcompose.indicators
+package dev.zieger.plottingcompose.indicators.candles
 
 import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Output
 import dev.zieger.plottingcompose.definition.Port
+import dev.zieger.plottingcompose.indicators.Indicator
+import dev.zieger.plottingcompose.indicators.IndicatorDefinition
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
 class Candles(val length: Int) : Indicator<ICandle>(
