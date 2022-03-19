@@ -21,7 +21,7 @@ interface IStates {
 }
 
 data class FocusedInfo(
-    val itemIdx: Int,
+    val itemIdx: Long,
     val itemX: Float
 )
 

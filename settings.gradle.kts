@@ -8,14 +8,8 @@ pluginManagement {
     repositories {
         gradlePluginPortal()
         mavenCentral()
-        jcenter()
         google()
         maven("https://jitpack.io")
-
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-        maven("https://dl.bintray.com/kotlin/kotlin-dev")
-        maven("https://dl.bintray.com/kotlin/kotlin-eap")
-        maven("https://plugins.gradle.org/m2/")
     }
 }
 

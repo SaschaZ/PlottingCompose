@@ -9,7 +9,7 @@ import dev.zieger.plottingcompose.processor.ProcessingScope
 
 interface IChartDrawScope<T : Input> : DrawScope, IChartEnvironment {
     val definition: ChartDefinition<T>
-    val scopes: List<ProcessingScope<T>>
+    val scopes: List<Pair<Long, ProcessingScope<T>>>
 
     val rootRect: Rect
     val chartRect: Rect
@@ -18,14 +18,14 @@ interface IChartDrawScope<T : Input> : DrawScope, IChartEnvironment {
 fun <T : Input> ChartDrawScope(
     definition: ChartDefinition<T>,
     drawScope: DrawScope,
-    scopes: List<ProcessingScope<T>>,
+    scopes: List<Pair<Long, ProcessingScope<T>>>,
     chartEnvironment: IChartEnvironment,
 ): IChartDrawScope<T> = object : IChartDrawScope<T>,
     DrawScope by drawScope,
     IChartEnvironment by chartEnvironment {
 
     override val definition: ChartDefinition<T> = definition
-    override val scopes: List<ProcessingScope<T>> = scopes
+    override val scopes: List<Pair<Long, ProcessingScope<T>>> = scopes
 
     override val rootRect: Rect = Rect(0f, 0f, chartSize.value.width.toFloat(), chartSize.value.height.toFloat())
     override val chartRect: Rect = rootRect.run {

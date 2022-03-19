@@ -9,15 +9,16 @@ plugins {
 }
 
 repositories {
+    mavenLocal()
     google()
     mavenCentral()
-    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     maven("https://jitpack.io")
 }
 
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation("dev.zieger.utils:time:3.0.13")
+    implementation("dev.zieger:bybitapi:1.0.1")
 
     val koTestVersion: String by project
     testImplementation("io.kotest:kotest-runner-junit5:$koTestVersion")

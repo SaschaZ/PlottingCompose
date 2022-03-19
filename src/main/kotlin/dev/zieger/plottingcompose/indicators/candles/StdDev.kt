@@ -30,7 +30,7 @@ data class StdDev(
         params.singles.value(data)?.let { closes ->
             val mean = closes.items.map { it.scalar.toDouble() }.average()
             val stdDev = sqrt(closes.items.map { it.scalar.toDouble() - mean }.map { it.pow(2) }.average())
-            set(STD_DEV, Output.Scalar(input.x, stdDev))
+            set(STD_DEV, Output.Scalar(input.openTime, stdDev))
         }
     }
 }

@@ -4,21 +4,27 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import dev.zieger.bybitapi.ByBitExchange
+import dev.zieger.bybitapi.dto.enumerations.Interval
+import dev.zieger.bybitapi.dto.enumerations.Symbol
 import dev.zieger.plottingcompose.definition.Chart
 import dev.zieger.plottingcompose.definition.ChartDefinition
 import dev.zieger.plottingcompose.definition.with
 import dev.zieger.plottingcompose.indicators.candles.AverageType
 import dev.zieger.plottingcompose.indicators.candles.BollingerBands
 import dev.zieger.plottingcompose.indicators.candles.Ohcl
-import dev.zieger.plottingcompose.indicators.candles.Single
-import dev.zieger.plottingcompose.styles.*
-import kotlinx.coroutines.flow.asFlow
+import dev.zieger.plottingcompose.styles.CandleSticks
+import dev.zieger.plottingcompose.styles.FillBetween
+import dev.zieger.plottingcompose.styles.LineSeries
+import dev.zieger.plottingcompose.styles.SingleFocusable
+import kotlinx.coroutines.flow.map
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
@@ -37,15 +43,18 @@ fun main() = application {
             val high = max(open, close) + Random.nextDouble() * 5_000.0
             val low = min(open, close) - Random.nextDouble() * 5_000.0
             return Ohcl.Companion.Ohcl(
-                open, high, close, low, Random.nextLong().absoluteValue % 2000L, time * 60
+                open, high, close, low, Random.nextLong().absoluteValue % 2000L, time
             )
         }
 
+        val scope = rememberCoroutineScope()
         val ohcl = remember {
-            var lastClose: Double? = null
-            (0..50000).map { idx ->
-                randomOhcl(idx.toLong(), lastClose).also { c -> lastClose = c.close }
-            }.asFlow()
+            ByBitExchange(scope).candles(Symbol.BTCUSD, Interval.M1, 10_000)
+                .map { Ohcl.Companion.Ohcl(it.open, it.high, it.close, it.low, it.volume, it.openTime) }
+//            var lastClose: Double? = null
+//            ("1.10.2018".parse().millisLong.."1.5.2022".parse().millisLong step 1.hours.millisLong).map { time ->
+//                randomOhcl(time, lastClose).also { c -> lastClose = c.close }
+//            }.asFlow()
         }
 
         val ctrlPressed: MutableState<Boolean> = remember { mutableStateOf(false) }
@@ -88,12 +97,12 @@ fun main() = application {
                                 negativeColor = Color(0xFFFF0000)
                             )
                         ),
-                        verticalWeight = 0.8f
+//                        verticalWeight = 0.8f
                     ),
-                    Chart(
-                        Impulses(Single.key() with Single.VOLUME, Color.Red),
-                        verticalWeight = 0.2f
-                    )
+//                    Chart(
+//                        Impulses(Single.key() with Single.VOLUME, Color.Red),
+//                        verticalWeight = 0.2f
+//                    )
                 ),
                 ohcl
             )

@@ -9,10 +9,15 @@ open class SingleFocusable<I : Input>(
     private val unfocused: PlotStyle<I>,
     private val focused: PlotStyle<I>
 ) : SingleGroup<I>(*arrayOf(unfocused, focused)) {
-    override fun IPlotDrawScope<I>.drawSingle(value: I, data: Map<Key<I>, List<PortValue<*>>>, isFocused: Boolean) {
+    override fun IPlotDrawScope<I>.drawSingle(
+        idx: Long,
+        value: I,
+        data: Map<Key<I>, List<PortValue<*>>>,
+        isFocused: Boolean
+    ) {
         when (isFocused) {
-            true -> focused.run { drawSingle(value, data, true) }
-            else -> unfocused.run { drawSingle(value, data, false) }
+            true -> focused.run { drawSingle(idx, value, data, true) }
+            else -> unfocused.run { drawSingle(idx, value, data, false) }
         }
     }
 }

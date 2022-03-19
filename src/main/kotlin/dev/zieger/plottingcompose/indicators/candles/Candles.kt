@@ -20,14 +20,18 @@ class Candles(val length: Int) : Indicator<ICandle>(
         val CANDLES: Port<Output.Container<Ohcl.Companion.Ohcl>> = Port("Candles", false)
     }
 
-    private var candles: List<ICandle> = emptyList()
+    private var candles: HashMap<Long, ICandle> = HashMap()
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        candles = (candles + input).takeLast(length)
+        candles[input.openTime] = input
+        if (candles.size == length)
+            candles.remove(candles.minByOrNull { it.key }!!.key)
 
-        set(CANDLES, Output.Container(candles.map {
-            Ohcl.Companion.Ohcl(it.open, it.high, it.low, it.close, it.volume, it.openTime)
-        }))
+        set(CANDLES, Output.Container(
+            candles.entries.sortedBy { (k, _) -> k }.map { (_, c) ->
+                Ohcl.Companion.Ohcl(c.open, c.high, c.low, c.close, c.volume, c.openTime)
+            })
+        )
     }
 }
 

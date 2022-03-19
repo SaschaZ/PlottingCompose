@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
+import dev.zieger.plottingcompose.InputContainer
 import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 
@@ -13,8 +14,8 @@ class Fill<I : Input>(
     private val upWards: Boolean = false
 ) : PlotStyle<I>(slot) {
 
-    override fun IPlotDrawScope<I>.drawSeries(data: Map<I, Map<Key<I>, List<PortValue<*>>>>) {
-        val checked = data.map { (x, d) -> Offset(x.x.toFloat(), slot.value(d)?.scalar?.toFloat() ?: 0f).toScene() }
+    override fun IPlotDrawScope<I>.drawSeries(data: Map<InputContainer<I>, Map<Key<I>, List<PortValue<*>>>>) {
+        val checked = data.map { (x, d) -> Offset(x.idx.toFloat(), slot.value(d)?.scalar?.toFloat() ?: 0f).toScene() }
         if (checked.isEmpty()) return
 
         val path = Path()

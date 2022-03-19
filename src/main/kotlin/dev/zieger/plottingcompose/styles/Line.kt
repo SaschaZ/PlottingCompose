@@ -10,7 +10,12 @@ open class Line<T : Input>(
     private val color: Color = Color.Cyan,
     private val width: Float = 1f
 ) : PlotStyle<T>(slot) {
-    override fun IPlotDrawScope<T>.drawSingle(value: T, data: Map<Key<T>, List<PortValue<*>>>, isFocused: Boolean) {
+    override fun IPlotDrawScope<T>.drawSingle(
+        idx: Long,
+        value: T,
+        data: Map<Key<T>, List<PortValue<*>>>,
+        isFocused: Boolean
+    ) {
         slot.value(data)?.offsets?.toList()?.let { (from, to) ->
             drawLine(color, Offset(from.x, from.y), Offset(to.x, to.y), width, alpha = color.alpha)
         }

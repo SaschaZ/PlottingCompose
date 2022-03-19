@@ -1,5 +1,6 @@
 package dev.zieger.plottingcompose.processor
 
+import dev.zieger.plottingcompose.InputContainer
 import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.definition.Key
 import kotlinx.coroutines.flow.Flow
@@ -10,15 +11,15 @@ class Processor<I : Input>(private val keys: List<Key<I>>) {
 
     constructor(vararg unit: Key<I>) : this(unit.toList())
 
-    fun process(input: Flow<I>): Flow<ProcessingScope<I>> = flow {
+    fun process(input: Flow<InputContainer<I>>): Flow<Pair<Long, ProcessingScope<I>>> = flow {
         val units = HashMap<Key<I>, ProcessingUnit<I>>()
         fun Key<I>.buildUnits() {
             units.getOrPut(this) { invoke().also { it.dependsOn.forEach { d -> d.buildUnits() } } }
         }
         keys.forEach { it.buildUnits() }
 
-        input.collect { inp ->
-            emit(ProcessingScope(inp).apply {
+        input.collect { (input, idx) ->
+            emit(idx to ProcessingScope(input).apply {
                 units.doProcess()
             })
         }

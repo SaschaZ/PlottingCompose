@@ -15,6 +15,7 @@ open class Dot<T : Input>(
 ) : PlotStyle<T>(slot) {
 
     override fun IPlotDrawScope<T>.drawSingle(
+        idx: Long,
         value: T,
         data: Map<Key<T>, List<PortValue<*>>>,
         isFocused: Boolean
