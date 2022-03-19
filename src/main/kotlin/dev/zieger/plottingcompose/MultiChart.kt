@@ -54,7 +54,6 @@ fun <T : Input> MultiChart(
                     val x = it.x.toDouble()
                     InputContainer(it, (if (x == lastX) lastIdx else ++lastIdx).also { if (lastX != x) lastX = x })
                 }).collect { (idx, s) ->
-                    println("$idx: ${s.input}")
                     it.removeIf { (i, _) -> i == idx }
                     it.add(idx to s)
                 }
@@ -197,13 +196,13 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
 
     translationOffset.value = translationOffset.value.copy(y = visibleYPixelRange.start.toFloat())
 
-//    println(
-//        "visibleXPixelRange=$visibleXPixelRange; visibleXValueRange=$xValueRange\n" +
-//                "visibleYPixelRange=$visibleYPixelRange; visibleYValueRange=$yValueRange\n" +
-//                "translationOffset=${translationOffset.value}; finalTranslation=$finalTranslation\n" +
-//                "scaleCenter=${scaleCenter.value}; scale=${scale.value}\n" +
-//        "heightDivisor=${heightDivisor.value.toFloat()}; widthDivisor=$widthDivisor"
-//    )
+    println(
+        "visibleXPixelRange=$visibleXPixelRange; visibleXValueRange=$xValueRange\n" +
+                "visibleYPixelRange=$visibleYPixelRange; visibleYValueRange=$yValueRange\n" +
+                "translationOffset=${translationOffset.value}; finalTranslation=$finalTranslation\n" +
+                "scaleCenter=${scaleCenter.value}; scale=${scale.value}\n" +
+                "heightDivisor=${heightDivisor.value.toFloat()}; widthDivisor=$widthDivisor"
+    )
 }
 
 fun Modifier.fillEnvironment(states: IStates, chartEnvironment: ChartEnvironment): Modifier =

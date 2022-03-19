@@ -95,17 +95,20 @@ fun <T : Input> PlotDrawScope(
 
         data.entries.toList().subList(startIdx, endIdx)
             .associate { (k, v) -> k to v }.also { cd ->
-//                    translationOffset.value = translation.value.copy(x = rawData.keys.first().x.toFloat() / -widthDivisor)
+//                rawData.keys.lastOrNull()?.also { last ->
+//                    translationOffset.value =
+//                        translationOffset.value.copy(x = (last.idx / -widthDivisor + plotRect.width * 0.9f) * scale.value.x)
+//                }
                 focusedItemIdx.value = findFocusedItemIdx(cd)
             }
     }
 
     private fun findFocusedItemIdx(data: Map<InputContainer<T>, Map<Key<T>, List<PortValue<*>>>>): FocusedInfo? =
         mousePosition.value?.takeIf { plotRect.contains(it) }?.let { mp ->
-            val relX = mp.x - plotRect.left - translation.value.x
+            val relX = mp.x - plotRect.left - finalTranslation.x
             val d = data.entries.toList()
             d.minByOrNull { (it.key.idx / widthDivisor - relX).absoluteValue }
-                ?.let { (input, _) -> FocusedInfo(input.idx, input.idx / widthDivisor + translation.value.x) }
+                ?.let { (input, _) -> FocusedInfo(input.idx, input.idx / widthDivisor + finalTranslation.x) }
         }
 
     override val xValueRange: ClosedRange<Double> = chartData.xValueRange()
