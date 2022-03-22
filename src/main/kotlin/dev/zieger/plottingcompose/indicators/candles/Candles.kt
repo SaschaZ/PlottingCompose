@@ -24,12 +24,12 @@ class Candles(val length: Int) : Indicator<ICandle>(
 
     override suspend fun ProcessingScope<ICandle>.process() {
         candles[input.openTime] = input
-        if (candles.size == length)
+        if (candles.size == length + 1)
             candles.remove(candles.minByOrNull { it.key }!!.key)
 
         set(CANDLES, Output.Container(
             candles.entries.sortedBy { (k, _) -> k }.map { (_, c) ->
-                Ohcl.Companion.Ohcl(c.open, c.high, c.low, c.close, c.volume, c.openTime)
+                Ohcl.Companion.Ohcl(c.open, c.high, c.close, c.low, c.volume, c.openTime)
             })
         )
     }

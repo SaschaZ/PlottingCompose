@@ -1,39 +1,49 @@
+@file:Suppress("FunctionName")
+
 package dev.zieger.plottingcompose.scopes
 
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import dev.zieger.plottingcompose.definition.Chart
 import dev.zieger.plottingcompose.definition.ChartDefinition
 import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
 
-interface IChartDrawScope<T : Input> : DrawScope, IChartEnvironment {
+interface IChartDrawScope<T : Input> : DrawScope {
     val definition: ChartDefinition<T>
-    val scopes: List<Pair<Long, ProcessingScope<T>>>
+    val scopes: Map<Long, ProcessingScope<T>>
+    val chartEnvironment: Map<Chart<T>, IChartEnvironment>
+    val states: Map<Chart<T>, IStates>
 
-    val rootRect: Rect
-    val chartRect: Rect
+    val IChartEnvironment.rootRect: Rect
+    val IChartEnvironment.chartRect: Rect
 }
 
 fun <T : Input> ChartDrawScope(
     definition: ChartDefinition<T>,
     drawScope: DrawScope,
-    scopes: List<Pair<Long, ProcessingScope<T>>>,
-    chartEnvironment: IChartEnvironment,
+    scopes: Map<Long, ProcessingScope<T>>,
+    chartEnvironment: Map<Chart<T>, IChartEnvironment>,
+    states: Map<Chart<T>, IStates>,
 ): IChartDrawScope<T> = object : IChartDrawScope<T>,
-    DrawScope by drawScope,
-    IChartEnvironment by chartEnvironment {
+    DrawScope by drawScope {
 
     override val definition: ChartDefinition<T> = definition
-    override val scopes: List<Pair<Long, ProcessingScope<T>>> = scopes
+    override val scopes: Map<Long, ProcessingScope<T>> = scopes
+    override val chartEnvironment: Map<Chart<T>, IChartEnvironment> = chartEnvironment
+    override val states: Map<Chart<T>, IStates> = states
 
-    override val rootRect: Rect = Rect(0f, 0f, chartSize.value.width.toFloat(), chartSize.value.height.toFloat())
-    override val chartRect: Rect = rootRect.run {
-        Rect(
-            left + definition.margin.left.invoke(chartSize.value).value,
-            top + definition.margin.top.invoke(chartSize.value).value,
-            right - definition.margin.right.invoke(chartSize.value).value,
-            bottom - definition.margin.bottom.invoke(chartSize.value).value
-        )
-    }
+    override val IChartEnvironment.rootRect: Rect
+        get() = Rect(0f, 0f, chartSize.value.width.toFloat(), chartSize.value.height.toFloat())
+
+    override val IChartEnvironment.chartRect: Rect
+        get() = rootRect.run {
+            Rect(
+                left + definition.margin.left.invoke(chartSize.value).value,
+                top + definition.margin.top.invoke(chartSize.value).value,
+                right - definition.margin.right.invoke(chartSize.value).value,
+                bottom - definition.margin.bottom.invoke(chartSize.value).value
+            )
+        }
 }

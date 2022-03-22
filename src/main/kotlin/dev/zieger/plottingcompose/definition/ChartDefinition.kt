@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import dev.zieger.plottingcompose.scopes.IChartEnvironment
+import dev.zieger.plottingcompose.scopes.IGlobalChartEnvironment
 import dev.zieger.plottingcompose.scopes.range
 import dev.zieger.plottingcompose.styles.PlotStyle
 import dev.zieger.utils.time.toTime
@@ -51,15 +51,17 @@ class Margin(
 
 class Chart<T : Input>(
     vararg plot: PlotStyle<T>,
-    val margin: Margin = Margin({ 0.dp }, { 20.dp }),
+    val margin: Margin = Margin({ 0.dp }, { 0.dp }),
     val verticalWeight: Float = 1f,
     val tickLength: IntSize.() -> Dp = { 15.dp },
-    val yTicks: IChartEnvironment.(yRange: ClosedRange<Double>) -> Map<Double, String> = {
+    val yTicks: IGlobalChartEnvironment.(yRange: ClosedRange<Double>) -> Map<Double, String> = {
         TickHelper.ticksY(it, chartSize.value.height, 30f)
     },
-    val xTicks: IChartEnvironment.(idxRange: ClosedRange<Int>, xRange: ClosedRange<Double>) -> Map<Double, String> = { idxRange, xRange ->
+    val xTicks: IGlobalChartEnvironment.(idxRange: ClosedRange<Int>, xRange: ClosedRange<Double>) -> Map<Double, String> = { idxRange, xRange ->
         TickHelper.ticksY(idxRange.run { start.toDouble()..endInclusive.toDouble() }, chartSize.value.width, 100f)
     },
+    val drawYLabels: Boolean = true,
+    val drawXLabels: Boolean = true,
     val backgroundColor: Color = Color(0xFF151924),
     val borderColor: Color = Color.DarkGray,
     val gridColor: Color = Color(0x11FFFFFF),

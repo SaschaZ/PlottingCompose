@@ -11,6 +11,7 @@ import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.PortValue
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.x
+import dev.zieger.utils.misc.nullWhen
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
 import kotlin.math.absoluteValue
@@ -40,22 +41,26 @@ interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, ISt
 
     val visibleXPixelRange: ClosedRange<Double>
     val visibleYPixelRange: ClosedRange<Double>
+    val rawXRange: ClosedRange<Float>
 }
 
 fun <T : Input> PlotDrawScope(
     chart: Chart<T>,
     chartDrawScope: IChartDrawScope<T>,
+    chartEnvironment: IChartEnvironment,
     states: IStates,
     rect: Rect
 ): IPlotDrawScope<T> = object : IPlotDrawScope<T>, IChartDrawScope<T> by chartDrawScope,
-    IStates by states {
+    IChartEnvironment by chartEnvironment, IStates by states {
 
     override val chart: Chart<T> = chart
 
     override val plotBorderRect: Rect = rect.run {
         Rect(
-            left, top, right - yLabelWidth.value.toFloat() - chart.tickLength(chartSize.value).value / 2f,
-            bottom - xLabelHeight.value.toFloat() - chart.tickLength(chartSize.value).value / 2f
+            left, top, right - (if (chart.drawYLabels) yLabelWidth.value.toFloat() else 0f) -
+                    chart.tickLength(chartSize.value).value / 2f,
+            bottom - (if (chart.drawXLabels) xLabelHeight.value.toFloat() else 0f) -
+                    (if (chart.drawXLabels) chart.tickLength(chartSize.value).value / 2f else 0f)
         )
     }
     override val plotRect: Rect = plotBorderRect.run {
@@ -74,6 +79,10 @@ fun <T : Input> PlotDrawScope(
     }
 
     private val rawData = scopes.chartData(chart)
+    override val rawXRange: ClosedRange<Float> =
+        rawData.nullWhen { it.isEmpty() }
+            ?.run { minOf { it.key.idx / widthDivisor }..maxOf { it.key.idx / widthDivisor } }
+            ?: 0f..0f
 
     private var startIdx = 0
     private var endIdx = 0
@@ -95,11 +104,8 @@ fun <T : Input> PlotDrawScope(
 
         data.entries.toList().subList(startIdx, endIdx)
             .associate { (k, v) -> k to v }.also { cd ->
-//                rawData.keys.lastOrNull()?.also { last ->
-//                    translationOffset.value =
-//                        translationOffset.value.copy(x = (last.idx / -widthDivisor + plotRect.width * 0.9f) * scale.value.x)
-//                }
                 focusedItemIdx.value = findFocusedItemIdx(cd)
+                    ?: focusedItemIdx.value.nullWhen { mousePosition.value?.let { rootRect.contains(it) } != true }
             }
     }
 
@@ -129,23 +135,26 @@ fun <T : Input> PlotDrawScope(
 
     override val yLabelRect: Rect = rect.run {
         Rect(
-            right - yLabelWidth.value.toFloat(), top, right,
-            bottom - xLabelHeight.value.toFloat() - chart.tickLength(chartSize.value).value / 2f
+            right - (if (chart.drawYLabels) yLabelWidth.value.toFloat() else 0f), top, right,
+            bottom - (if (chart.drawXLabels) xLabelHeight.value.toFloat() else 0f) -
+                    chart.tickLength(chartSize.value).value / 2f
         )
     }
     override val yTickRect: Rect = yLabelRect.run {
         Rect(
-            left - chart.tickLength(chartSize.value).value, top, left, bottom
+            left - (if (chart.drawYLabels) chart.tickLength(chartSize.value).value else 0f), top, left, bottom
         )
     }
     override val xLabelRect: Rect = rect.run {
         Rect(
-            left, bottom - xLabelHeight.value.toFloat(), right - yLabelWidth.value.toFloat(), bottom
+            left, bottom - (if (chart.drawXLabels) xLabelHeight.value.toFloat() else 0f), right -
+                    (if (chart.drawYLabels) yLabelWidth.value.toFloat() else 0f), bottom
         )
     }
     override val xTickRect: Rect = xLabelRect.run {
         Rect(
-            left, top - chart.tickLength(chartSize.value).value, right, top
+            left, top - chart.tickLength(chartSize.value).value * if (chart.drawXLabels) 1f else 0.5f,
+            right, top + chart.tickLength(chartSize.value).value * if (chart.drawXLabels) 0f else 0.5f
         )
     }
 
@@ -192,11 +201,11 @@ fun <T> ClosedRange<T>.range() where T : Comparable<T>, T : Number = endInclusiv
 
 fun <E, C : Collection<E>> C.nullWhenEmpty(): C? = ifEmpty { null }
 
-private fun <I : Input> List<Pair<Long, ProcessingScope<I>>>.chartData(chart: Chart<I>): Map<InputContainer<I>, Map<Key<I>, List<PortValue<*>>>> {
+private fun <I : Input> Map<Long, ProcessingScope<I>>.chartData(chart: Chart<I>): Map<InputContainer<I>, Map<Key<I>, List<PortValue<*>>>> {
     val slots = chart.plots.flatMap { it.slots }
     val keys = slots.map { it.key }
     val ports = slots.map { it.port }
-    return associate { (idx, scope) ->
+    return entries.associate { (idx, scope) ->
         InputContainer(scope.input, idx) to scope.data.filterKeys { k -> k in keys }
             .map { (key, value) ->
                 key to value.filter { portValue -> portValue.port in ports }

@@ -61,34 +61,43 @@ fun <T : Input> MultiChart(
         }
     }
 
-    val chartEnvironment = remember { ChartEnvironment() }
-    val states = remember { States(scope) }
+    val globalChartEnvironment = remember { GlobalChartEnvironment() }
+    val chartEnvironment = remember { definition.charts.associateWith { ChartEnvironment(globalChartEnvironment) } }
+    val globalStates = remember { GlobalStates() }
+    val states = remember { definition.charts.associateWith { States(globalStates) } }
+
     Canvas(
         modifier
             .fillMaxSize()
-            .fillEnvironment(states, chartEnvironment)
+            .fillEnvironment(globalStates, globalChartEnvironment)
     ) {
         ChartDrawScope(
             definition,
             this@Canvas,
-            ArrayList(scopes),
-            chartEnvironment
-        ).draw(states)
+            ArrayList(scopes).toMap(),
+            chartEnvironment,
+            states,
+        ).draw()
     }
 }
 
 private operator fun Offset.div(value: Pair<Float, Float>): Offset = copy(x / value.x, y / value.y)
 
-fun <T : Input> IChartDrawScope<T>.draw(states: States) {
-    drawRect(definition.backgroundColor, rootRect)
+fun <T : Input> IChartDrawScope<T>.draw() {
+    drawRect(definition.backgroundColor, chartEnvironment[definition.charts.first()]!!.rootRect)
     var top = 0f
     definition.charts.forEach { chart ->
-        val height = chartRect.height * chart.verticalWeight
-        val rect = chartRect.copy(top = chartRect.top + top, bottom = chartRect.top + top + height)
-        clipRect(rect) {
-            PlotDrawScope(chart, this, states, rect).draw()
+        chartEnvironment[chart]!!.run {
+            val height = chartRect.height * chart.verticalWeight
+            val rect = chartRect.copy(
+                top = chartRect.top + top,
+                bottom = chartRect.top + top + height
+            )
+            clipRect(rect) {
+                PlotDrawScope(chart, this, this@run, states[chart]!!, rect).draw()
+            }
+            top += height
         }
-        top += height
     }
 }
 
@@ -96,18 +105,19 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
     drawRect(chart.backgroundColor, plotBorderRect)
     drawRect(chart.borderColor, plotBorderRect, Stroke(1f))
 
-    clipRect(yLabelRect) {
-        scale(1f to finalScale.y, scaleCenter.value.copy(x = 0f)) {
-            translate(finalTranslation.copy(x = 0f)) {
-                yTicks.forEach { (value, label) ->
-                    val y = yLabelRect.bottom - value.toFloat() / heightDivisor.value.toFloat() + yLabelHeight / 3
-                    drawText(label, Offset(yLabelRect.left, y), 20f, chart.tickLabelColor)
+    if (chart.drawYLabels)
+        clipRect(yLabelRect) {
+            scale(1f to scale.value.y, scaleCenter.value.copy(x = 0f)) {
+                translate(finalTranslation.copy(x = 0f)) {
+                    yTicks.forEach { (value, label) ->
+                        val y = yLabelRect.bottom - value.toFloat() / heightDivisor.value.toFloat() + yLabelHeight / 3
+                        drawText(label, Offset(yLabelRect.left, y), 20f, chart.tickLabelColor)
+                    }
                 }
             }
         }
-    }
     clipRect(plotBorderRect) {
-        scale(1f to finalScale.y, scaleCenter.value.copy(x = 0f)) {
+        scale(1f to scale.value.y, scaleCenter.value.copy(x = 0f)) {
             translate(finalTranslation.copy(x = 0f)) {
                 yTicks.forEach { (value, _) ->
                     val y = yLabelRect.bottom - value.toFloat() / heightDivisor.value.toFloat()
@@ -120,7 +130,7 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
         }
     }
     clipRect(yTickRect) {
-        scale(1f to finalScale.y, scaleCenter.value.copy(x = 0f)) {
+        scale(1f to scale.value.y, scaleCenter.value.copy(x = 0f)) {
             translate(finalTranslation.copy(x = 0f)) {
                 yTicks.forEach { (value, _) ->
                     val y = yLabelRect.bottom - value.toFloat() / heightDivisor.value.toFloat()
@@ -133,21 +143,22 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
         }
     }
 
-    clipRect(xLabelRect) {
-        translate(finalTranslation.copy(y = 0f)) {
-            xTicks.forEach { (value, label) ->
-                val x = xLabelRect.left + value.toFloat() / widthDivisor
-                drawText(
-                    label,
-                    Offset(x, xLabelRect.bottom),
-                    20f,
-                    chart.tickLabelColor,
-                    1f,
-                    TextAlign.Center
-                )
+    if (chart.drawXLabels)
+        clipRect(xLabelRect) {
+            translate(finalTranslation.copy(y = 0f)) {
+                xTicks.forEach { (value, label) ->
+                    val x = xLabelRect.left + value.toFloat() / widthDivisor
+                    drawText(
+                        label,
+                        Offset(x, xLabelRect.bottom),
+                        20f,
+                        chart.tickLabelColor,
+                        1f,
+                        TextAlign.Center
+                    )
+                }
             }
         }
-    }
     clipRect(plotBorderRect) {
         translate(finalTranslation.copy(y = 0f)) {
             xTicks.entries.toList().forEachIndexed { idx, (value, _) ->
@@ -196,59 +207,62 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
 
     translationOffset.value = translationOffset.value.copy(y = visibleYPixelRange.start.toFloat())
 
-    println(
-        "visibleXPixelRange=$visibleXPixelRange; visibleXValueRange=$xValueRange\n" +
-                "visibleYPixelRange=$visibleYPixelRange; visibleYValueRange=$yValueRange\n" +
-                "translationOffset=${translationOffset.value}; finalTranslation=$finalTranslation\n" +
-                "scaleCenter=${scaleCenter.value}; scale=${scale.value}\n" +
-                "heightDivisor=${heightDivisor.value.toFloat()}; widthDivisor=$widthDivisor"
-    )
+//    println(
+//        "visibleXPixelRange=$visibleXPixelRange; visibleXValueRange=$xValueRange\n" +
+//                "visibleYPixelRange=$visibleYPixelRange; visibleYValueRange=$yValueRange\n" +
+//                "translationOffset=${translationOffset.value}; finalTranslation=$finalTranslation\n" +
+//                "scaleCenter=${scaleCenter.value}; scale=${scale.value}\n" +
+//                "heightDivisor=${heightDivisor.value.toFloat()}; widthDivisor=$widthDivisor"
+//    )
 }
 
-fun Modifier.fillEnvironment(states: IStates, chartEnvironment: ChartEnvironment): Modifier =
-    onSizeChanged { chartEnvironment.chartSize.value = it }
-        .mouseScrollFilter { event, _ ->
-            ((event.delta as? MouseScrollUnit.Line)?.value
-                ?: (event.delta as? MouseScrollUnit.Page)?.value)?.let { delta ->
-                when (event.orientation) {
-                    MouseScrollOrientation.Vertical -> {
-                        val prevScaleX = chartEnvironment.scale.value.x
-                        chartEnvironment.scale.value =
-                            (chartEnvironment.scale.value.x.let { it - it * 0.033f * delta }).coerceAtLeast(0.0001f) to 1f
-                        val scaleXDiffRel = chartEnvironment.scale.value.x / prevScaleX
-                        chartEnvironment.translation.run {
-                            val diff = states.focusedItemIdx.value?.run {
-                                itemX - itemX / scaleXDiffRel
-                            } ?: 0f
-                            value = value.copy(value.x / scaleXDiffRel + diff)
-                        }
-
-                        chartEnvironment.mousePosition.value?.also { mp ->
-                            chartEnvironment.scaleCenter.value = mp
-                        }
+fun Modifier.fillEnvironment(
+    states: GlobalStates,
+    chartEnvironment: GlobalChartEnvironment
+): Modifier = onSizeChanged { chartEnvironment.chartSize.value = it }
+    .mouseScrollFilter { event, _ ->
+        ((event.delta as? MouseScrollUnit.Line)?.value
+            ?: (event.delta as? MouseScrollUnit.Page)?.value)?.let { delta ->
+            when (event.orientation) {
+                MouseScrollOrientation.Vertical -> {
+                    val prevScaleX = chartEnvironment.scale.value.x
+                    chartEnvironment.scale.value =
+                        (chartEnvironment.scale.value.x.let { it - it * 0.033f * delta }).coerceAtLeast(0.0001f) to 1f
+                    val scaleXDiffRel = chartEnvironment.scale.value.x / prevScaleX
+                    chartEnvironment.translation.run {
+                        val diff = states.focusedItemIdx.value?.run {
+                            itemX - itemX / scaleXDiffRel
+                        } ?: 0f
+                        value = value.copy(value.x / scaleXDiffRel + diff)
                     }
-                    MouseScrollOrientation.Horizontal -> {
-                        chartEnvironment.translation.value =
-                            chartEnvironment.translation.value.run {
-                                copy(
-                                    x + delta * chartEnvironment.scale.value.x.pow(
-                                        0.01f
-                                    ) * 20
-                                )
-                            }
+
+                    chartEnvironment.mousePosition.value?.also { mp ->
+                        chartEnvironment.scaleCenter.value = mp
                     }
                 }
+                MouseScrollOrientation.Horizontal -> {
+                    chartEnvironment.translation.value =
+                        chartEnvironment.translation.value.run {
+                            copy(
+                                x + delta * chartEnvironment.scale.value.x.pow(
+                                    0.01f
+                                ) * 20
+                            )
+                        }
+                }
             }
-            false
-        }.pointerInput(Unit) {
-            detectDragGestures { change, dragAmount ->
-                change.consumeAllChanges()
-                chartEnvironment.translation.value = chartEnvironment.translation.value.run { copy(x + dragAmount.x) }
-            }
-        }.pointerMoveFilter(onExit = {
-            chartEnvironment.mousePosition.value = null
-            false
-        }, onMove = {
-            chartEnvironment.mousePosition.value = it
-            false
-        })
+        }
+        false
+    }.pointerInput(Unit) {
+        detectDragGestures { change, dragAmount ->
+            change.consumeAllChanges()
+            chartEnvironment.translation.value =
+                chartEnvironment.translation.value.run { copy(x + dragAmount.x/*, y + dragAmount.y*/) }
+        }
+    }.pointerMoveFilter(onExit = {
+        chartEnvironment.mousePosition.value = null
+        false
+    }, onMove = {
+        chartEnvironment.mousePosition.value = it
+        false
+    })

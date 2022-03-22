@@ -16,14 +16,10 @@ import dev.zieger.bybitapi.dto.enumerations.Interval
 import dev.zieger.bybitapi.dto.enumerations.Symbol
 import dev.zieger.plottingcompose.definition.Chart
 import dev.zieger.plottingcompose.definition.ChartDefinition
+import dev.zieger.plottingcompose.definition.TickHelper
 import dev.zieger.plottingcompose.definition.with
-import dev.zieger.plottingcompose.indicators.candles.AverageType
-import dev.zieger.plottingcompose.indicators.candles.BollingerBands
-import dev.zieger.plottingcompose.indicators.candles.Ohcl
-import dev.zieger.plottingcompose.styles.CandleSticks
-import dev.zieger.plottingcompose.styles.FillBetween
-import dev.zieger.plottingcompose.styles.LineSeries
-import dev.zieger.plottingcompose.styles.SingleFocusable
+import dev.zieger.plottingcompose.indicators.candles.*
+import dev.zieger.plottingcompose.styles.*
 import kotlinx.coroutines.flow.map
 import kotlin.math.absoluteValue
 import kotlin.math.max
@@ -97,12 +93,29 @@ fun main() = application {
                                 negativeColor = Color(0xFFFF0000)
                             )
                         ),
-//                        verticalWeight = 0.8f
+                        Dot(SupRes.key(SupResParameter()) with SupRes.MIN, Color.Magenta, 10f),
+                        Dot(SupRes.key(SupResParameter()) with SupRes.MAX, Color.Cyan, 10f),
+                        verticalWeight = 0.8f,
+                        drawXLabels = false
                     ),
-//                    Chart(
-//                        Impulses(Single.key() with Single.VOLUME, Color.Red),
-//                        verticalWeight = 0.2f
-//                    )
+                    Chart(
+                        SingleFocusable(
+                            Impulses(
+                                Volume.key() with Volume.VOLUME,
+                                positiveColor = Color(0xFF39a59a),
+                                negativeColor = Color(0xFFe95751)
+                            ),
+                            Impulses(
+                                Volume.key() with Volume.VOLUME,
+                                positiveColor = Color(0xFF00FF00),
+                                negativeColor = Color(0xFFFF0000)
+                            )
+                        ),
+                        verticalWeight = 0.2f,
+                        yTicks = {
+                            TickHelper.ticksY(it, chartSize.value.height, 150f)
+                        }
+                    )
                 ),
                 ohcl
             )

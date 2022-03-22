@@ -29,12 +29,9 @@ data class Sma(
         val SMA = Port<Output.Scalar>("Sma")
     }
 
-    private var average = 0f
-    private var items = HashMap<Long, Float>()
-
     override suspend fun ProcessingScope<ICandle>.process() {
-        params.singles.value(data)?.items?.also { closes ->
-            set(SMA, Output.Scalar(input.x, closes.map { it.scalar.toFloat() }.average()))
+        params.singles.value(data)?.items?.asFloats()?.also { closes ->
+            set(SMA, Output.Scalar(input.x, closes.average()))
         }
     }
 }

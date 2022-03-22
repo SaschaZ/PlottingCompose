@@ -52,6 +52,14 @@ sealed class Output {
         override val yRange: ClosedRange<Double> = offset.y.toDouble()..offset.y.toDouble()
     }
 
+    open class Line(
+        open val start: androidx.compose.ui.geometry.Offset,
+        open val end: androidx.compose.ui.geometry.Offset
+    ) : Output() {
+        override val xRange: ClosedRange<Double> = start.x.toDouble()..end.x.toDouble()
+        override val yRange: ClosedRange<Double> = start.y.toDouble()..end.y.toDouble()
+    }
+
     open class Vector(open val x: Number, open val vector: Collection<Number>) : Output() {
         override val xRange: ClosedRange<Double> get() = x.toDouble()..x.toDouble()
         override val yRange: ClosedRange<Double> get() = vector.minOf { it.toDouble() }..vector.maxOf { it.toDouble() }
@@ -69,3 +77,6 @@ sealed class Output {
         override val yRange: ClosedRange<Double> get() = items.minOf { it.yRange.start }..items.maxOf { it.yRange.endInclusive }
     }
 }
+
+fun <V : Output.Scalar> List<V>.asFloats(): List<Float> =
+    map { it.scalar.toFloat() }

@@ -6,7 +6,7 @@ import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 
 open class Line<T : Input>(
-    private val slot: Slot<T, Output.OffsetVector>,
+    private val slot: Slot<T, Output.Line>,
     private val color: Color = Color.Cyan,
     private val width: Float = 1f
 ) : PlotStyle<T>(slot) {
@@ -16,8 +16,14 @@ open class Line<T : Input>(
         data: Map<Key<T>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
-        slot.value(data)?.offsets?.toList()?.let { (from, to) ->
-            drawLine(color, Offset(from.x, from.y), Offset(to.x, to.y), width, alpha = color.alpha)
+        slot.value(data)?.let { line ->
+            drawLine(
+                color,
+                Offset(line.start.x / widthDivisor, plotRect.bottom - line.start.y / heightDivisor.value.toFloat()),
+                Offset(line.end.x / widthDivisor, plotRect.bottom - line.end.y / heightDivisor.value.toFloat()),
+                width,
+                alpha = color.alpha
+            )
         }
     }
 }

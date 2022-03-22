@@ -9,7 +9,7 @@ import dev.zieger.plottingcompose.indicators.IndicatorDefinition
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
 data class BollingerBandsParameter(
-    val length: Int,
+    val length: Int = 20,
     val stdDevFactor: Double = 2.0,
     val averageType: AverageType = AverageType.SMA
 )

@@ -24,7 +24,31 @@ open class Dot<T : Input>(
             drawCircle(
                 color,
                 width / 2,
-                Offset(value.x.toFloat(), it.scalar.toFloat()).toScene(),
+                Offset(idx.toFloat(), it.scalar.toFloat()).toScene(),
+                color.alpha,
+                strokeWidth?.let { s -> Stroke(s) } ?: Fill)
+        }
+    }
+}
+
+open class DotIndependent<T : Input>(
+    private val slot: Slot<T, Output.Offset>,
+    val color: Color = Color.Black,
+    val width: Float = 1f,
+    private val strokeWidth: Float? = null
+) : PlotStyle<T>(slot) {
+
+    override fun IPlotDrawScope<T>.drawSingle(
+        idx: Long,
+        value: T,
+        data: Map<Key<T>, List<PortValue<*>>>,
+        isFocused: Boolean
+    ) {
+        slot.value(data)?.let {
+            drawCircle(
+                color,
+                width / 2,
+                it.offset.copy(x = idx.toFloat()).toScene(),
                 color.alpha,
                 strokeWidth?.let { s -> Stroke(s) } ?: Fill)
         }

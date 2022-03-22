@@ -1,11 +1,11 @@
 package dev.zieger.plottingcompose.indicators.candles
 
 import dev.zieger.plottingcompose.definition.Key
-import dev.zieger.plottingcompose.definition.Output
 import dev.zieger.plottingcompose.definition.Port
 import dev.zieger.plottingcompose.indicators.Indicator
 import dev.zieger.plottingcompose.indicators.IndicatorDefinition
 import dev.zieger.plottingcompose.processor.ProcessingScope
+import dev.zieger.plottingcompose.styles.ImpulseData
 
 class Volume : Indicator<ICandle>(key(), listOf(VOLUME)) {
 
@@ -14,10 +14,13 @@ class Volume : Indicator<ICandle>(key(), listOf(VOLUME)) {
         override fun key(param: Unit) = Key("Volume", param) { Volume() }
         fun key() = key(Unit)
 
-        val VOLUME = Port<Output.Scalar>("VOLUME")
+        val VOLUME = Port<ImpulseData>("VOLUME")
     }
 
+    private var prev: ICandle? = null
+
     override suspend fun ProcessingScope<ICandle>.process() {
-        set(VOLUME, Output.Scalar(input.x, input.volume))
+        set(VOLUME, ImpulseData(input.x, input.volume, prev?.let { it.close < input.close } == true))
+        prev = input
     }
 }

@@ -39,7 +39,7 @@ open class CandleSticks<I : Input>(
             return
         }
         val bodySize = Size(
-            0.85f / widthDivisor * xStretchFactor.value,
+            0.85f / widthDivisor,
             ((candle.open - candle.close).absoluteValue.toFloat() / heightDivisor.value.toFloat()).coerceAtLeast(
                 lineWidth / widthDivisor
             )
