@@ -1,10 +1,15 @@
 package dev.zieger.plottingcompose
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -14,13 +19,23 @@ import androidx.compose.ui.window.application
 import dev.zieger.bybitapi.ByBitExchange
 import dev.zieger.bybitapi.dto.enumerations.Interval
 import dev.zieger.bybitapi.dto.enumerations.Symbol
+import dev.zieger.bybitapi.utils.plus
+import dev.zieger.plottingcompose.bitinex.BitfinexInterval.D1
+import dev.zieger.plottingcompose.bitinex.BitfinexPair
+import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.USD
+import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.XMR
+import dev.zieger.plottingcompose.bitinex.RestEndpoint
+import dev.zieger.plottingcompose.bitinex.SocketEndpoint
 import dev.zieger.plottingcompose.definition.Chart
 import dev.zieger.plottingcompose.definition.ChartDefinition
 import dev.zieger.plottingcompose.definition.TickHelper
 import dev.zieger.plottingcompose.definition.with
 import dev.zieger.plottingcompose.indicators.candles.*
+import dev.zieger.plottingcompose.strategy.BbStrategy
+import dev.zieger.plottingcompose.strategy.BbStrategyOptions
 import dev.zieger.plottingcompose.styles.*
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
@@ -39,18 +54,86 @@ fun main() = application {
             val high = max(open, close) + Random.nextDouble() * 5_000.0
             val low = min(open, close) - Random.nextDouble() * 5_000.0
             return Ohcl.Companion.Ohcl(
-                open, high, close, low, Random.nextLong().absoluteValue % 2000L, time
+                open, high, close, low, Random.nextDouble().absoluteValue % 2000L, time
             )
         }
 
         val scope = rememberCoroutineScope()
-        val ohcl = remember {
-            ByBitExchange(scope).candles(Symbol.BTCUSD, Interval.M1, 10_000)
-                .map { Ohcl.Companion.Ohcl(it.open, it.high, it.close, it.low, it.volume, it.openTime) }
+        val btc = remember {
+            ByBitExchange(scope).candles(Symbol.BTCUSD, Interval.D, 10_000)
+                .map { Ohcl.Companion.Ohcl(it.open, it.high, it.close, it.low, it.volume.toDouble(), it.openTime) }
+        }
+        val xmr = remember {
+            RestEndpoint().candles(BitfinexPair(XMR, USD), D1)
+                .plus(SocketEndpoint(scope).candles(BitfinexPair(XMR, USD), D1))
+                .onEach { println(it) }
+        }
+//        val generated = remember {
 //            var lastClose: Double? = null
 //            ("1.10.2018".parse().millisLong.."1.5.2022".parse().millisLong step 1.hours.millisLong).map { time ->
 //                randomOhcl(time, lastClose).also { c -> lastClose = c.close }
 //            }.asFlow()
+//        }
+
+        val chartDefinition = remember {
+            val bbOptions = BollingerBandsParameter(20, 2.0, AverageType.SMA)
+            val bbKey = BollingerBands.key(bbOptions)
+            val bbStrategyKey = BbStrategy.key(BbStrategyOptions(bbOptions))
+
+            ChartDefinition(
+                Chart(
+                    LineSeries(
+                        bbKey with BollingerBands.HIGH,
+                        Color.Yellow.copy(alpha = 0.5f), 1f
+                    ),
+                    LineSeries(
+                        bbKey with BollingerBands.MID,
+                        Color.Yellow.copy(alpha = 0.5f), 1f
+                    ),
+                    LineSeries(
+                        bbKey with BollingerBands.LOW,
+                        Color(0xFF7700).copy(alpha = 0.5f), 1f
+                    ),
+                    FillBetween(
+                        (bbKey with BollingerBands.HIGH) to
+                                (bbKey with BollingerBands.LOW),
+                        Color.Yellow.copy(alpha = 0.2f)
+                    ),
+                    SingleFocusable(
+                        CandleSticks(
+                            Ohcl.key() with Ohcl.OHCL,
+                            positiveColor = Color(0xFF39a59a),
+                            negativeColor = Color(0xFFe95751)
+                        ), CandleSticks(
+                            Ohcl.key() with Ohcl.OHCL,
+                            positiveColor = Color(0xFF00FF00),
+                            negativeColor = Color(0xFFFF0000)
+                        )
+                    ),
+//                        Dot(SupRes.key(SupResParameter()) with SupRes.MIN, Color.Magenta, 10f),
+//                        Dot(SupRes.key(SupResParameter()) with SupRes.MAX, Color.Cyan, 10f),
+                    verticalWeight = 0.8f,
+                    drawXLabels = false
+                ),
+                Chart(
+                    SingleFocusable(
+                        Impulses(
+                            Volume.key() with Volume.VOLUME,
+                            positiveColor = Color(0xFF39a59a),
+                            negativeColor = Color(0xFFe95751)
+                        ),
+                        Impulses(
+                            Volume.key() with Volume.VOLUME,
+                            positiveColor = Color(0xFF00FF00),
+                            negativeColor = Color(0xFFFF0000)
+                        )
+                    ),
+                    verticalWeight = 0.2f,
+                    yTicks = {
+                        TickHelper.ticksY(it, chartSize.value.height, 150f)
+                    }
+                )
+            )
         }
 
         val ctrlPressed: MutableState<Boolean> = remember { mutableStateOf(false) }
@@ -62,63 +145,21 @@ fun main() = application {
             altPressed.value = it.isAltPressed
             false
         }, undecorated = true) {
-            MultiChart(
-                ChartDefinition(
-                    Chart(
-                        LineSeries(
-                            BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.HIGH,
-                            Color.Yellow.copy(alpha = 0.5f), 1f
-                        ),
-                        LineSeries(
-                            BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.MID,
-                            Color.Yellow.copy(alpha = 0.5f), 1f
-                        ),
-                        LineSeries(
-                            BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.LOW,
-                            Color(0xFF7700).copy(alpha = 0.5f), 1f
-                        ),
-                        FillBetween(
-                            (BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.HIGH) to
-                                    (BollingerBands.key(20, 2.0, AverageType.SMA) with BollingerBands.LOW),
-                            Color.Yellow.copy(alpha = 0.2f)
-                        ),
-                        SingleFocusable(
-                            CandleSticks(
-                                Ohcl.key() with Ohcl.OHCL,
-                                positiveColor = Color(0xFF39a59a),
-                                negativeColor = Color(0xFFe95751)
-                            ), CandleSticks(
-                                Ohcl.key() with Ohcl.OHCL,
-                                positiveColor = Color(0xFF00FF00),
-                                negativeColor = Color(0xFFFF0000)
-                            )
-                        ),
-                        Dot(SupRes.key(SupResParameter()) with SupRes.MIN, Color.Magenta, 10f),
-                        Dot(SupRes.key(SupResParameter()) with SupRes.MAX, Color.Cyan, 10f),
-                        verticalWeight = 0.8f,
-                        drawXLabels = false
-                    ),
-                    Chart(
-                        SingleFocusable(
-                            Impulses(
-                                Volume.key() with Volume.VOLUME,
-                                positiveColor = Color(0xFF39a59a),
-                                negativeColor = Color(0xFFe95751)
-                            ),
-                            Impulses(
-                                Volume.key() with Volume.VOLUME,
-                                positiveColor = Color(0xFF00FF00),
-                                negativeColor = Color(0xFFFF0000)
-                            )
-                        ),
-                        verticalWeight = 0.2f,
-                        yTicks = {
-                            TickHelper.ticksY(it, chartSize.value.height, 150f)
-                        }
-                    )
-                ),
-                ohcl
-            )
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MultiChart(
+                    chartDefinition,
+                    btc,
+                    modifier = Modifier.fillMaxWidth(0.5f)
+                )
+                MultiChart(
+                    chartDefinition,
+                    xmr,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }

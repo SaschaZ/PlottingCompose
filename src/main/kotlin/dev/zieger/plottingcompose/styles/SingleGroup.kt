@@ -16,6 +16,5 @@ open class SingleGroup<I : Input>(vararg style: PlotStyle<I>) :
         value: I,
         data: Map<Key<I>, List<PortValue<*>>>,
         isFocused: Boolean
-    ) =
-        styles.forEach { it.run { drawSingle(idx, value, data, isFocused) } }
+    ) = styles.forEach { it.run { this.data = data; drawSingle(idx, value, data, isFocused) } }
 }

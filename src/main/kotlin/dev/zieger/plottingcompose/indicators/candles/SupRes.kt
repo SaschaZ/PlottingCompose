@@ -51,8 +51,8 @@ class SupRes(
 
 //            fillMaxMinValues(p)
             whenNotNull(
-                bbLow.value(data)?.scalar?.toFloat(),
-                bbHigh.value(data)?.scalar?.toFloat()
+                bbLow.value()?.scalar?.toFloat(),
+                bbHigh.value()?.scalar?.toFloat()
             ) { bbL, bbH ->
                 when {
                     input.high > bbH -> set(MAX, Output.Scalar(input.x, input.high))

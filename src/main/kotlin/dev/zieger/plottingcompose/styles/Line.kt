@@ -16,7 +16,7 @@ open class Line<T : Input>(
         data: Map<Key<T>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
-        slot.value(data)?.let { line ->
+        slot.value()?.let { line ->
             drawLine(
                 color,
                 Offset(line.start.x / widthDivisor, plotRect.bottom - line.start.y / heightDivisor.value.toFloat()),

@@ -23,7 +23,8 @@ interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, ISt
     val yLabelRect: Rect
     val yTickRect: Rect
     val xLabelRect: Rect
-    val xTickRect: Rect
+    val x1TickRect: Rect
+    val x2TickRect: Rect
     val plotBorderRect: Rect
     val plotRect: Rect
 
@@ -147,11 +148,20 @@ fun <T : Input> PlotDrawScope(
     }
     override val xLabelRect: Rect = rect.run {
         Rect(
-            left, bottom - (if (chart.drawXLabels) xLabelHeight.value.toFloat() else 0f), right -
-                    (if (chart.drawYLabels) yLabelWidth.value.toFloat() else 0f), bottom
+            left,
+            bottom - (if (chart.drawXLabels) xLabelHeight.value.toFloat() else 0f),
+            right - (if (chart.drawYLabels) yLabelWidth.value.toFloat() else 0f),
+            bottom
         )
     }
-    override val xTickRect: Rect = xLabelRect.run {
+    override val x1TickRect: Rect = rect.run {
+        Rect(
+            left, top - chart.tickLength(chartSize.value).value * 0.5f,
+            right - (if (chart.drawYLabels) yLabelWidth.value.toFloat() else 0f),
+            top + chart.tickLength(chartSize.value).value * 0.5f
+        )
+    }
+    override val x2TickRect: Rect = xLabelRect.run {
         Rect(
             left, top - chart.tickLength(chartSize.value).value * if (chart.drawXLabels) 1f else 0.5f,
             right, top + chart.tickLength(chartSize.value).value * if (chart.drawXLabels) 0f else 0.5f
@@ -160,6 +170,9 @@ fun <T : Input> PlotDrawScope(
 
     override val visibleYPixelRange: ClosedRange<Double> = plotRect.run {
         yValueRange.run { start / heightDivisor.value.toFloat()..endInclusive / heightDivisor.value.toFloat() }
+    }.also { visibleYPixelRange ->
+        translationOffsetY.value = visibleYPixelRange.start.toFloat()
+        translationOffsetX.value = (-rawXRange.endInclusive + plotRect.width * scaleCenterRelative.value.x)
     }
 
     override fun Offset.toScene(): Offset =
@@ -193,6 +206,9 @@ fun <T : Input> PlotDrawScope(
         return xMin..xMax
     }
 }
+
+private operator fun Offset.div(size: Rect): Offset =
+    Offset(x / size.width, y / size.height)
 
 private operator fun ClosedRange<Float>.minus(value: Float): ClosedRange<Float> =
     start - value..endInclusive - value

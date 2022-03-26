@@ -8,7 +8,7 @@ import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 
 class Impulses<I : Input>(
-    private val slot: Slot<I, out Output.Scalar>,
+    private val slot: Slot<I, Output.Scalar>,
     private val positiveColor: Color = Color.Green,
     private val negativeColor: Color = Color.Red
 ) : PlotStyle<I>(slot) {
@@ -18,12 +18,12 @@ class Impulses<I : Input>(
         data: Map<Key<I>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
-        val color = when ((slot.value(data) as? ImpulseData)?.isPositive) {
+        val color = when ((slot.value() as? ImpulseData)?.isPositive) {
             null,
             true -> positiveColor
             false -> negativeColor
         }
-        Offset(0f, slot.value(data)?.scalar?.toFloat() ?: 0f).let { offset ->
+        Offset(0f, slot.value()?.scalar?.toFloat() ?: 0f).let { offset ->
             val size = Size(0.85f / widthDivisor, offset.y / heightDivisor.value.toFloat())
             if (size.width < 0 || size.height < 0) return
             val topLeft = offset.copy(

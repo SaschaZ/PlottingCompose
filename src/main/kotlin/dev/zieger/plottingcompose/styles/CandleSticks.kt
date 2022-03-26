@@ -34,7 +34,7 @@ open class CandleSticks<I : Input>(
             return
         }
 
-        val candle = slot.value(data) ?: run {
+        val candle = slot.value() ?: run {
             println("no candle stored")
             return
         }

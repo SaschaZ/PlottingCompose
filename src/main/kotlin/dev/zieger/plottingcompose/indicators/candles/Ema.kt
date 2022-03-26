@@ -27,7 +27,7 @@ class Ema(private val params: EmaParameter) : Indicator<ICandle>(
     private var ema: Double = 0.0
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        params.source.value(data)?.let { v ->
+        params.source.value()?.let { v ->
             ema = v.scalar.toDouble() * k + ema * (1 - k)
             set(EMA, Output.Scalar(input.x, ema))
         }

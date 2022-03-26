@@ -17,10 +17,7 @@ class Volume : Indicator<ICandle>(key(), listOf(VOLUME)) {
         val VOLUME = Port<ImpulseData>("VOLUME")
     }
 
-    private var prev: ICandle? = null
-
     override suspend fun ProcessingScope<ICandle>.process() {
-        set(VOLUME, ImpulseData(input.x, input.volume, prev?.let { it.close < input.close } == true))
-        prev = input
+        set(VOLUME, ImpulseData(input.x, input.volume, input.close > input.open))
     }
 }

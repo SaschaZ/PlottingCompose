@@ -31,7 +31,7 @@ data class Singles(
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        param.candles.value(data)?.let { candles ->
+        param.candles.value()?.let { candles ->
             set(OPENS, Output.Container(candles.items.map { Output.Scalar(it.x, it.open) }))
             set(HIGHS, Output.Container(candles.items.map { Output.Scalar(it.x, it.high) }))
             set(CLOSES, Output.Container(candles.items.map { Output.Scalar(it.x, it.close) }))

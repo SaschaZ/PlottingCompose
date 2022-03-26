@@ -12,9 +12,11 @@ import kotlin.reflect.cast
 open class PlotStyle<I : Input>(vararg slot: Slot<I, *>) {
 
     val slots: List<Slot<I, *>> = slot.toList()
+    internal lateinit var data: Map<Key<I>, List<PortValue<*>>>
 
     open fun IPlotDrawScope<I>.drawSeries(data: Map<InputContainer<I>, Map<Key<I>, List<PortValue<*>>>>) {
         data.entries.forEach { (input, data) ->
+            this@PlotStyle.data = data
             drawSingle(input.idx, input.input, data, focusedItemIdx.value?.itemIdx == input.idx)
         }
     }
@@ -26,7 +28,7 @@ open class PlotStyle<I : Input>(vararg slot: Slot<I, *>) {
         isFocused: Boolean
     ) = Unit
 
-    protected fun <I : Input, O : Output> Slot<I, O>.value(data: Map<Key<I>, List<PortValue<*>>>): O? =
+    protected fun <O : Output> Slot<I, O>.value(data: Map<Key<I>, List<PortValue<*>>> = this@PlotStyle.data): O? =
         data[key]?.firstOrNull { it.port == port }?.value?.let { v ->
             if (port.type.isInstance(v))
                 port.type.cast(v)

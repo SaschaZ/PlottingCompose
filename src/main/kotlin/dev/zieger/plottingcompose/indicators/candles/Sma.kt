@@ -30,7 +30,7 @@ data class Sma(
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        params.singles.value(data)?.items?.asFloats()?.also { closes ->
+        params.singles.value()?.items?.asFloats()?.also { closes ->
             set(SMA, Output.Scalar(input.x, closes.average()))
         }
     }

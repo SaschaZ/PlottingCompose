@@ -27,7 +27,7 @@ data class StdDev(
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        params.singles.value(data)?.items?.asFloats()?.let { closes ->
+        params.singles.value()?.items?.asFloats()?.let { closes ->
             val mean = closes.average()
             val stdDev = sqrt(closes.map { it.toDouble() - mean }.map { it.pow(2) }.average())
             set(STD_DEV, Output.Scalar(input.x, stdDev))

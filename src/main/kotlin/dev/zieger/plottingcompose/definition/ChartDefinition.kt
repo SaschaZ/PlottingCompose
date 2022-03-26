@@ -125,7 +125,6 @@ object TickHelper {
                     ) ?: 1) * scaledValueTickLength
                 }
                 .associateWith { it.toTime().formatTime() }
-                .onEach { println(it) }
         } else emptyMap()
     }
 }

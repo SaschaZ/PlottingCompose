@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.mouse.MouseScrollOrientation
 import androidx.compose.ui.input.mouse.MouseScrollUnit
@@ -22,6 +23,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerMoveFilter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import dev.zieger.plottingcompose.definition.ChartDefinition
 import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.definition.keys
@@ -29,8 +31,7 @@ import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.processor.Processor
 import dev.zieger.plottingcompose.scopes.*
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 
@@ -50,9 +51,19 @@ fun <T : Input> MultiChart(
             scope.launch {
                 var lastX: Double? = null
                 var lastIdx: Long = -1L
-                Processor(definition.keys()).process(input.map {
+                Processor(definition.keys()).process(input.mapNotNull {
                     val x = it.x.toDouble()
-                    InputContainer(it, (if (x == lastX) lastIdx else ++lastIdx).also { if (lastX != x) lastX = x })
+                    when {
+                        lastX == x || lastX == null -> {
+                            lastX = x
+                            InputContainer(it, lastIdx)
+                        }
+                        lastX?.let { lx -> lx < x } == true -> {
+                            lastX = x
+                            InputContainer(it, ++lastIdx)
+                        }
+                        else -> null
+                    }
                 }).collect { (idx, s) ->
                     it.removeIf { (i, _) -> i == idx }
                     it.add(idx to s)
@@ -107,7 +118,7 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
 
     if (chart.drawYLabels)
         clipRect(yLabelRect) {
-            scale(1f to scale.value.y, scaleCenter.value.copy(x = 0f)) {
+            scale(1f to scale.value.y, scaleCenter.copy(x = 0f)) {
                 translate(finalTranslation.copy(x = 0f)) {
                     yTicks.forEach { (value, label) ->
                         val y = yLabelRect.bottom - value.toFloat() / heightDivisor.value.toFloat() + yLabelHeight / 3
@@ -117,7 +128,7 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
             }
         }
     clipRect(plotBorderRect) {
-        scale(1f to scale.value.y, scaleCenter.value.copy(x = 0f)) {
+        scale(1f to scale.value.y, scaleCenter.copy(x = 0f)) {
             translate(finalTranslation.copy(x = 0f)) {
                 yTicks.forEach { (value, _) ->
                     val y = yLabelRect.bottom - value.toFloat() / heightDivisor.value.toFloat()
@@ -130,7 +141,7 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
         }
     }
     clipRect(yTickRect) {
-        scale(1f to scale.value.y, scaleCenter.value.copy(x = 0f)) {
+        scale(1f to scale.value.y, scaleCenter.copy(x = 0f)) {
             translate(finalTranslation.copy(x = 0f)) {
                 yTicks.forEach { (value, _) ->
                     val y = yLabelRect.bottom - value.toFloat() / heightDivisor.value.toFloat()
@@ -183,17 +194,23 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
             }
         }
     }
-    clipRect(xTickRect) {
-        translate(finalTranslation.copy(y = 0f)) {
-            xTicks.forEach { (value, _) ->
-                val x = xLabelRect.left + value.toFloat() / widthDivisor
-                drawLine(
-                    chart.tickColor, Offset(x, xTickRect.top),
-                    Offset(x, xTickRect.bottom), 1f
-                )
+
+    fun drawXTicks(rect: Rect) {
+        clipRect(rect) {
+            translate(finalTranslation.copy(y = 0f)) {
+                xTicks.forEach { (value, _) ->
+                    val x = xLabelRect.left + value.toFloat() / widthDivisor
+                    drawLine(
+                        chart.tickColor, Offset(x, rect.top),
+                        Offset(x, rect.bottom), 1f
+                    )
+                }
             }
         }
     }
+
+    drawXTicks(x1TickRect)
+    drawXTicks(x2TickRect)
 
     clipRect(plotRect) {
         translate(finalTranslation) {
@@ -204,8 +221,6 @@ fun <T : Input> IPlotDrawScope<T>.draw() {
             }
         }
     }
-
-    translationOffset.value = translationOffset.value.copy(y = visibleYPixelRange.start.toFloat())
 
 //    println(
 //        "visibleXPixelRange=$visibleXPixelRange; visibleXValueRange=$xValueRange\n" +
@@ -225,19 +240,11 @@ fun Modifier.fillEnvironment(
             ?: (event.delta as? MouseScrollUnit.Page)?.value)?.let { delta ->
             when (event.orientation) {
                 MouseScrollOrientation.Vertical -> {
-                    val prevScaleX = chartEnvironment.scale.value.x
                     chartEnvironment.scale.value =
                         (chartEnvironment.scale.value.x.let { it - it * 0.033f * delta }).coerceAtLeast(0.0001f) to 1f
-                    val scaleXDiffRel = chartEnvironment.scale.value.x / prevScaleX
-                    chartEnvironment.translation.run {
-                        val diff = states.focusedItemIdx.value?.run {
-                            itemX - itemX / scaleXDiffRel
-                        } ?: 0f
-                        value = value.copy(value.x / scaleXDiffRel + diff)
-                    }
 
                     chartEnvironment.mousePosition.value?.also { mp ->
-                        chartEnvironment.scaleCenter.value = mp
+                        chartEnvironment.scaleCenterRelative.value = mp / chartEnvironment.chartSize.value
                     }
                 }
                 MouseScrollOrientation.Horizontal -> {
@@ -266,3 +273,6 @@ fun Modifier.fillEnvironment(
         chartEnvironment.mousePosition.value = it
         false
     })
+
+private operator fun Offset.div(other: IntSize): Offset =
+    Offset(x / other.width, y / other.height)

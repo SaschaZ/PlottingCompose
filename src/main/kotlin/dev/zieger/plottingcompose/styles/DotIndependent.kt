@@ -20,7 +20,7 @@ open class Dot<T : Input>(
         data: Map<Key<T>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
-        slot.value(data)?.let {
+        slot.value()?.let {
             drawCircle(
                 color,
                 width / 2,
@@ -44,7 +44,7 @@ open class DotIndependent<T : Input>(
         data: Map<Key<T>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
-        slot.value(data)?.let {
+        slot.value()?.let {
             drawCircle(
                 color,
                 width / 2,

@@ -17,7 +17,7 @@ data class BollingerBandsParameter(
 data class BollingerBands(
     val param: BollingerBandsParameter,
 ) : Indicator<ICandle>(
-    key(param), listOf(HIGH, MID, LOW),
+    key(param), listOf(HIGH, MID, LOW, BB_VALUES),
     StdDev.key(param.length), param.averageType(param.length)
 ) {
 
@@ -32,19 +32,28 @@ data class BollingerBands(
         val HIGH = Port<Output.Scalar>("High")
         val MID = Port<Output.Scalar>("Mid")
         val LOW = Port<Output.Scalar>("Low")
+        val BB_VALUES = Port<BbValues>("BbValues")
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        (StdDev.key(param.length) with StdDev.STD_DEV).value(data)?.scalar?.toDouble()?.let { stdDev ->
+        (StdDev.key(param.length) with StdDev.STD_DEV).value()?.scalar?.toDouble()?.let { stdDev ->
             (param.averageType(param.length) with when (param.averageType) {
                 AverageType.SMA -> Sma.SMA
                 AverageType.EMA -> Ema.EMA
-            }).value(data)?.scalar?.toDouble()?.let { avg ->
+            }).value()?.scalar?.toDouble()?.let { avg ->
                 val width = stdDev * param.stdDevFactor
                 set(HIGH, Output.Scalar(input.x, avg + width))
                 set(MID, Output.Scalar(input.x, avg))
                 set(LOW, Output.Scalar(input.x, avg - width))
+                set(BB_VALUES, BbValues(input.x, avg + width, avg, avg - width))
             }
         }
     }
 }
+
+data class BbValues(
+    val idx: Number,
+    val low: Double,
+    val mid: Double,
+    val high: Double
+) : Output.Scalar(idx, mid)

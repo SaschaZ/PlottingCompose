@@ -66,8 +66,8 @@ data class Label<I : Input>(
         data: Map<Key<I>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
-        ySlot.value(data)?.scalar?.toFloat()?.let { y ->
-            contentSlot.value(data)?.label?.let { c ->
+        ySlot.value()?.scalar?.toFloat()?.let { y ->
+            contentSlot.value()?.label?.let { c ->
                 val font = Font(null, fontSize)
                 val lines = c.split('\n').map { it to TextLine.make(it, font) }
 

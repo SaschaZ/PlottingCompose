@@ -46,6 +46,6 @@ interface ICandle : Input {
     val close: Double
     val low: Double
 
-    val volume: Long
+    val volume: Double
 }
 

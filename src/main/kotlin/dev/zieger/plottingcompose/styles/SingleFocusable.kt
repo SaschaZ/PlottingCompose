@@ -16,8 +16,8 @@ open class SingleFocusable<I : Input>(
         isFocused: Boolean
     ) {
         when (isFocused) {
-            true -> focused.run { drawSingle(idx, value, data, true) }
-            else -> unfocused.run { drawSingle(idx, value, data, false) }
+            true -> focused.run { this.data = data; drawSingle(idx, value, data, true) }
+            else -> unfocused.run { this.data = data; drawSingle(idx, value, data, false) }
         }
     }
 }

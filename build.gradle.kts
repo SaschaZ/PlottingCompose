@@ -4,12 +4,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm")
+    kotlin("plugin.serialization")
     id("org.jetbrains.compose")
     `maven-publish`
 }
 
 repositories {
     mavenLocal()
+    maven("https://maven.zieger.dev/releases")
     google()
     mavenCentral()
     maven("https://jitpack.io")
@@ -17,8 +19,24 @@ repositories {
 
 dependencies {
     implementation(compose.desktop.currentOs)
+
+    val kotlinCoroutinesVersion: String by project
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
+
     implementation("dev.zieger.utils:time:3.0.13")
     implementation("dev.zieger:bybitapi:1.0.1")
+    implementation("dev.zieger:tablecomposable:1.0.2")
+
+    val kotlinSerializationVersion: String by project
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
+
+    val ktorVersion: String by project
+    implementation("io.ktor:ktor-client-core:$ktorVersion")
+    implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
+    implementation("io.ktor:ktor-client-cio:$ktorVersion")
+    implementation("io.ktor:ktor-client-auth-jvm:$ktorVersion")
+    implementation("io.ktor:ktor-client-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-client-serialization:$ktorVersion")
 
     val koTestVersion: String by project
     testImplementation("io.kotest:kotest-runner-junit5:$koTestVersion")

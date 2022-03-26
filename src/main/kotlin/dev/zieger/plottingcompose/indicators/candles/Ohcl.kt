@@ -18,7 +18,7 @@ class Ohcl : Indicator<ICandle>(key(), listOf(OHCL)) {
 
         data class Ohcl(
             override val open: Double, override val high: Double, override val close: Double,
-            override val low: Double, override val volume: Long, override val openTime: Long
+            override val low: Double, override val volume: Double, override val openTime: Long
         ) : ICandle, Output.Vector(openTime, listOf(open, high, close, low)) {
             override val x: Number = openTime
         }
