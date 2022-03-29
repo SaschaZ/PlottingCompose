@@ -24,7 +24,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
 
     implementation("dev.zieger.utils:time:3.0.13")
-    implementation("dev.zieger:bybitapi:1.0.1")
+    implementation("dev.zieger:bybitapi:1.0.2")
     implementation("dev.zieger:tablecomposable:1.0.2")
 
     val kotlinSerializationVersion: String by project
