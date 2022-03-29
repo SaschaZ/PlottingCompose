@@ -14,7 +14,7 @@ enum class AverageType {
         length: Int,
         smaSource: Slot<ICandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES,
         emaSource: Slot<ICandle, Output.Scalar> = Single.key() with Single.CLOSE
-    ): Key<ICandle> =
+    ): Key<ICandle, *> =
         when (this) {
             SMA -> Sma.key(length, smaSource)
             EMA -> Ema.key(length, emaSource)

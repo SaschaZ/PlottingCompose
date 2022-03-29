@@ -14,6 +14,15 @@ interface IGlobalChartEnvironment {
     val scaleCenter: Offset
         get() = scaleCenterRelative.value * chartSize.value
     val mousePosition: MutableState<Offset?>
+
+    fun reset() {
+        chartSize.value = IntSize.Zero
+        translation.value = Offset.Zero
+        translationOffsetX.value = 0f
+        scale.value = 1f to 1f
+        scaleCenterRelative.value = Offset(0.8f, 0.5f)
+        mousePosition.value = null
+    }
 }
 
 private operator fun Offset.times(other: IntSize): Offset =
@@ -24,6 +33,12 @@ interface IChartEnvironment : IGlobalChartEnvironment {
     val finalTranslation: Offset
         get() = translation.value +
                 Offset(translationOffsetX.value, translationOffsetY.value)
+
+    override fun reset() {
+        super.reset()
+
+        translationOffsetY.value = 0f
+    }
 }
 
 data class GlobalChartEnvironment(
@@ -38,4 +53,7 @@ data class GlobalChartEnvironment(
 data class ChartEnvironment(
     val globalChartEnvironment: IGlobalChartEnvironment,
     override val translationOffsetY: MutableState<Float> = mutableStateOf(0f)
-) : IChartEnvironment, IGlobalChartEnvironment by globalChartEnvironment
+) : IChartEnvironment, IGlobalChartEnvironment by globalChartEnvironment {
+
+    override fun reset() = super<IChartEnvironment>.reset()
+}

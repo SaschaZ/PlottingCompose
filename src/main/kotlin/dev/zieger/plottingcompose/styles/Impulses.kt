@@ -15,7 +15,7 @@ class Impulses<I : Input>(
     override fun IPlotDrawScope<I>.drawSingle(
         idx: Long,
         value: I,
-        data: Map<Key<I>, List<PortValue<*>>>,
+        data: Map<Key<I, *>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
         val color = when ((slot.value() as? ImpulseData)?.isPositive) {

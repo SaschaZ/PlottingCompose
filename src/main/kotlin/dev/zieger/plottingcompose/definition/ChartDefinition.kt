@@ -22,7 +22,7 @@ class ChartDefinition<T : Input>(
     val charts: List<Chart<T>> = chart.toList()
 }
 
-fun <I : Input> ChartDefinition<I>.keys(): List<Key<I>> =
+fun <I : Input> ChartDefinition<I>.keys(): List<Key<I, *>> =
     charts.flatMap { c -> c.plots.flatMap { it.slots.map { s -> s.key } } }
 
 class ChartTitle(

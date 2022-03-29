@@ -6,11 +6,16 @@ import dev.zieger.plottingcompose.definition.*
 import java.util.*
 
 abstract class ProcessingUnit<I : Input>(
-    val key: Key<I>,
+    val key: Key<I, *>,
     val produces: List<Port<*>> = emptyList(),
-    vararg dependsOn: Key<I>
+    vararg dependsOn: Key<I, *>
 ) {
-    val dependsOn: List<Key<I>> = dependsOn.toList()
+
+    init {
+        key.create = { this }
+    }
+
+    val dependsOn: List<Key<I, *>> = dependsOn.toList()
     val slots: List<Slot<*, *>> = produces.map { key with it }
 
     protected fun ProcessingScope<I>.getAll(): List<PortValue<*>>? = data[key]

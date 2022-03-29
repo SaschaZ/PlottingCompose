@@ -17,7 +17,7 @@ open class Dot<T : Input>(
     override fun IPlotDrawScope<T>.drawSingle(
         idx: Long,
         value: T,
-        data: Map<Key<T>, List<PortValue<*>>>,
+        data: Map<Key<T, *>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
         slot.value()?.let {
@@ -41,7 +41,7 @@ open class DotIndependent<T : Input>(
     override fun IPlotDrawScope<T>.drawSingle(
         idx: Long,
         value: T,
-        data: Map<Key<T>, List<PortValue<*>>>,
+        data: Map<Key<T, *>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
         slot.value()?.let {

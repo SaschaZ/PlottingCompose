@@ -12,13 +12,14 @@ import dev.zieger.plottingcompose.definition.PortValue
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.x
 import dev.zieger.utils.misc.nullWhen
+import dev.zieger.utils.misc.whenNotNull
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
 import kotlin.math.absoluteValue
 
 interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, IStates {
     val chart: Chart<T>
-    val chartData: Map<InputContainer<T>, Map<Key<T>, List<PortValue<*>>>>
+    val chartData: Map<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>>
 
     val yLabelRect: Rect
     val yTickRect: Rect
@@ -28,7 +29,7 @@ interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, ISt
     val plotBorderRect: Rect
     val plotRect: Rect
 
-    val yValueRange: ClosedRange<Double>
+    val yValueRange: ClosedRange<Double>?
     val xValueRange: ClosedRange<Double>
 
     val yTicks: Map<Double, String>
@@ -41,7 +42,7 @@ interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, ISt
     fun Offset.toScene(): Offset
 
     val visibleXPixelRange: ClosedRange<Double>
-    val visibleYPixelRange: ClosedRange<Double>
+    val visibleYPixelRange: ClosedRange<Double>?
     val rawXRange: ClosedRange<Float>
 }
 
@@ -88,7 +89,7 @@ fun <T : Input> PlotDrawScope(
     private var startIdx = 0
     private var endIdx = 0
 
-    override val chartData: Map<InputContainer<T>, Map<Key<T>, List<PortValue<*>>>> = rawData.let { data ->
+    override val chartData: Map<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>> = rawData.let { data ->
         if (data.size <= 2) return@let emptyMap()
 
         startIdx =
@@ -110,7 +111,7 @@ fun <T : Input> PlotDrawScope(
             }
     }
 
-    private fun findFocusedItemIdx(data: Map<InputContainer<T>, Map<Key<T>, List<PortValue<*>>>>): FocusedInfo? =
+    private fun findFocusedItemIdx(data: Map<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>>): FocusedInfo? =
         mousePosition.value?.takeIf { plotRect.contains(it) }?.let { mp ->
             val relX = mp.x - plotRect.left - finalTranslation.x
             val d = data.entries.toList()
@@ -126,12 +127,14 @@ fun <T : Input> PlotDrawScope(
     }
     override val xLabelWidth = xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.size(20f)?.width ?: 0f
 
-    override val yValueRange: ClosedRange<Double> = chartData.yValueRange().also {
+    override val yValueRange: ClosedRange<Double>? = chartData.yValueRange()?.also {
         heightDivisor.value = it.range() / plotRect.height
     }
-    override val yTicks: Map<Double, String> = chart.yTicks(this, yValueRange).also { yTicks ->
-        yLabelWidth.value = (yTicks.values.maxByOrNull { it.length }?.size(20f)?.width)?.toDouble() ?: 0.0
-    }
+    override val yTicks: Map<Double, String> = yValueRange?.let {
+        chart.yTicks(this, it).also { yTicks ->
+            yLabelWidth.value = (yTicks.values.maxByOrNull { it.length }?.size(20f)?.width)?.toDouble() ?: 0.0
+        }
+    } ?: emptyMap()
     override val yLabelHeight = yTicks.values.maxByOrNull { it.length }?.size(20f)?.height ?: 0f
 
     override val yLabelRect: Rect = rect.run {
@@ -168,9 +171,9 @@ fun <T : Input> PlotDrawScope(
         )
     }
 
-    override val visibleYPixelRange: ClosedRange<Double> = plotRect.run {
-        yValueRange.run { start / heightDivisor.value.toFloat()..endInclusive / heightDivisor.value.toFloat() }
-    }.also { visibleYPixelRange ->
+    override val visibleYPixelRange: ClosedRange<Double>? = plotRect.run {
+        yValueRange?.run { start / heightDivisor.value.toFloat()..endInclusive / heightDivisor.value.toFloat() }
+    }?.also { visibleYPixelRange ->
         translationOffsetY.value = visibleYPixelRange.start.toFloat()
         translationOffsetX.value = (-rawXRange.endInclusive + plotRect.width * scaleCenterRelative.value.x)
     }
@@ -178,27 +181,27 @@ fun <T : Input> PlotDrawScope(
     override fun Offset.toScene(): Offset =
         Offset(plotRect.left + x / widthDivisor, plotRect.bottom - y / heightDivisor.value.toFloat())
 
-    private fun <I : Input> Map<InputContainer<I>, Map<Key<I>, List<PortValue<*>>>>.yValueRange(): ClosedRange<Double> {
+    private fun <I : Input> Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>.yValueRange(): ClosedRange<Double>? {
         if (isEmpty() || flatMap { it.value.values }.isEmpty()) return 0.0..0.0
 
-        val yMin = minOf {
-            it.value.minOf { i2 ->
-                i2.value.filter { (port, _) -> port.includeIntoScaling }.minOf { (_, value) ->
+        val yMin = minOfOrNull {
+            it.value.minOfOrNull { i2 ->
+                i2.value.filter { (port, _) -> port.includeIntoScaling }.minOfOrNull { (_, value) ->
                     value.yRange.start
-                }
-            }
+                } ?: Double.MAX_VALUE
+            } ?: Double.MAX_VALUE
         }
-        val yMax = maxOf {
-            it.value.maxOf { i2 ->
-                i2.value.filter { (port, _) -> port.includeIntoScaling }.maxOf { (_, value) ->
+        val yMax = maxOfOrNull {
+            it.value.maxOfOrNull { i2 ->
+                i2.value.filter { (port, _) -> port.includeIntoScaling }.maxOfOrNull { (_, value) ->
                     value.yRange.endInclusive
-                }
-            }
+                } ?: Double.MIN_VALUE
+            } ?: Double.MIN_VALUE
         }
-        return yMin..yMax
+        return whenNotNull(yMin, yMax) { min, max -> min..max }
     }
 
-    private fun <I : Input> Map<InputContainer<I>, Map<Key<I>, List<PortValue<*>>>>.xValueRange(): ClosedRange<Double> {
+    private fun <I : Input> Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>.xValueRange(): ClosedRange<Double> {
         if (isEmpty()) return 0.0..0.0
 
         val xMin = minOf { it.key.input.x.toDouble() }
@@ -217,7 +220,7 @@ fun <T> ClosedRange<T>.range() where T : Comparable<T>, T : Number = endInclusiv
 
 fun <E, C : Collection<E>> C.nullWhenEmpty(): C? = ifEmpty { null }
 
-private fun <I : Input> Map<Long, ProcessingScope<I>>.chartData(chart: Chart<I>): Map<InputContainer<I>, Map<Key<I>, List<PortValue<*>>>> {
+private fun <I : Input> Map<Long, ProcessingScope<I>>.chartData(chart: Chart<I>): Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>> {
     val slots = chart.plots.flatMap { it.slots }
     val keys = slots.map { it.key }
     val ports = slots.map { it.port }

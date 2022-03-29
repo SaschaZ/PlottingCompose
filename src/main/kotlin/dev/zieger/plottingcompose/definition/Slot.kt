@@ -6,12 +6,12 @@ import dev.zieger.plottingcompose.processor.ProcessingUnit
 import kotlin.reflect.KClass
 
 
-open class Slot<I : Input, out O : Output>(val key: Key<I>, val port: Port<@UnsafeVariance O>)
+data class Slot<I : Input, out O : Output>(val key: Key<I, *>, val port: Port<@UnsafeVariance O>)
 
-class Key<I : Input>(val name: String, val param: Any, val create: () -> ProcessingUnit<I>) {
-    operator fun invoke(): ProcessingUnit<I> = create()
+data class Key<I : Input, P : Any>(val name: String, val param: P, var create: (P) -> ProcessingUnit<I>) {
+    operator fun invoke(): ProcessingUnit<I> = create(param)
 
-    override fun equals(other: Any?): Boolean = (other as? Key<*>)?.let { o ->
+    override fun equals(other: Any?): Boolean = (other as? Key<*, *>)?.let { o ->
         name == o.name && param == o.param
     } ?: false
 
@@ -33,51 +33,8 @@ data class Port<O : Output>(
 
 data class PortValue<O : Output>(val port: Port<O>, val value: O)
 
-infix fun <I : Input, O : Output> Key<I>.with(port: Port<out O>): Slot<I, O> = Slot(this, port)
+infix fun <I : Input, O : Output> Key<I, *>.with(port: Port<out O>): Slot<I, O> = Slot(this, port)
 
 interface Input {
     val x: Number
 }
-
-sealed class Output {
-    abstract val xRange: ClosedRange<Double>
-    abstract val yRange: ClosedRange<Double>
-
-    open class Scalar(open val x: Number, open val scalar: Number) : Output() {
-        override val xRange: ClosedRange<Double> get() = x.toDouble()..x.toDouble()
-        override val yRange: ClosedRange<Double> get() = scalar.toDouble()..scalar.toDouble()
-    }
-
-    open class Offset(open val offset: androidx.compose.ui.geometry.Offset) : Output() {
-        override val xRange: ClosedRange<Double> = offset.x.toDouble()..offset.x.toDouble()
-        override val yRange: ClosedRange<Double> = offset.y.toDouble()..offset.y.toDouble()
-    }
-
-    open class Line(
-        open val start: androidx.compose.ui.geometry.Offset,
-        open val end: androidx.compose.ui.geometry.Offset
-    ) : Output() {
-        override val xRange: ClosedRange<Double> = start.x.toDouble()..end.x.toDouble()
-        override val yRange: ClosedRange<Double> = start.y.toDouble()..end.y.toDouble()
-    }
-
-    open class Vector(open val x: Number, open val vector: Collection<Number>) : Output() {
-        override val xRange: ClosedRange<Double> get() = x.toDouble()..x.toDouble()
-        override val yRange: ClosedRange<Double> get() = vector.minOf { it.toDouble() }..vector.maxOf { it.toDouble() }
-    }
-
-    open class OffsetVector(open val offsets: Collection<androidx.compose.ui.geometry.Offset>) : Output() {
-        override val xRange: ClosedRange<Double> = offsets.minOf { it.x.toDouble() }..offsets.maxOf { it.x.toDouble() }
-        override val yRange: ClosedRange<Double> = offsets.minOf { it.y.toDouble() }..offsets.maxOf { it.y.toDouble() }
-    }
-
-    open class Label(x: Number, y: Number, val label: String) : Scalar(x, y)
-    open class Lambda(x: Number, y: Number, val lambda: (Number) -> Boolean) : Scalar(x, y)
-    open class Container<V : Output>(open val items: List<V>) : Output() {
-        override val xRange: ClosedRange<Double> get() = items.minOf { it.xRange.start }..items.maxOf { it.xRange.endInclusive }
-        override val yRange: ClosedRange<Double> get() = items.minOf { it.yRange.start }..items.maxOf { it.yRange.endInclusive }
-    }
-}
-
-fun <V : Output.Scalar> List<V>.asFloats(): List<Float> =
-    map { it.scalar.toFloat() }

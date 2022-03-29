@@ -6,12 +6,12 @@ import dev.zieger.plottingcompose.definition.Port
 import dev.zieger.plottingcompose.processor.ProcessingUnit
 
 abstract class Indicator<I : Input>(
-    key: Key<I>,
+    key: Key<I, *>,
     produces: List<Port<*>> = emptyList(),
-    vararg dependsOn: Key<I>
+    vararg dependsOn: Key<I, *>
 ) : ProcessingUnit<I>(key, produces, *dependsOn)
 
 abstract class IndicatorDefinition<P : Any> {
 
-    abstract fun key(param: P): Key<*>
+    abstract fun key(param: P): Key<*, *>
 }

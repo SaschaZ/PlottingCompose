@@ -6,10 +6,7 @@ package dev.zieger.plottingcompose
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -30,8 +27,10 @@ import dev.zieger.plottingcompose.definition.keys
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.processor.Processor
 import dev.zieger.plottingcompose.scopes.*
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 
@@ -46,29 +45,30 @@ fun <T : Input> MultiChart(
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
-    val scopes = remember {
-        mutableStateListOf<Pair<Long, ProcessingScope<T>>>().also {
-            scope.launch {
-                var lastX: Double? = null
-                var lastIdx: Long = -1L
-                Processor(definition.keys()).process(input.mapNotNull {
-                    val x = it.x.toDouble()
-                    when {
-                        lastX == x || lastX == null -> {
-                            lastX = x
-                            InputContainer(it, lastIdx)
-                        }
-                        lastX?.let { lx -> lx < x } == true -> {
-                            lastX = x
-                            InputContainer(it, ++lastIdx)
-                        }
-                        else -> null
-                    }
-                }).collect { (idx, s) ->
-                    it.removeIf { (i, _) -> i == idx }
-                    it.add(idx to s)
+    val scopes = remember { mutableStateListOf<Pair<Long, ProcessingScope<T>>>() }
+    var collectJob by remember { mutableStateOf<Job?>(null) }
+    var collectFlow by remember { mutableStateOf<Flow<T>?>(null) }
+
+    fun Flow<T>.collect(): Job = scope.launch {
+        var lastX: Double? = null
+        var lastIdx: Long = -1L
+        Processor(definition.keys()).process(mapNotNull {
+            val x = it.x.toDouble()
+            when {
+                lastX == x || lastX == null -> {
+                    lastX = x
+                    InputContainer(it, lastIdx)
                 }
+                lastX?.let { lx -> lx < x } == true -> {
+                    lastX = x
+                    InputContainer(it, ++lastIdx)
+                }
+                else -> null
             }
+        }).collect last@{ (idx, s) ->
+            if (!isActive) return@last
+            scopes.removeIf { (i, _) -> i == idx }
+            scopes.add(idx to s)
         }
     }
 
@@ -76,6 +76,14 @@ fun <T : Input> MultiChart(
     val chartEnvironment = remember { definition.charts.associateWith { ChartEnvironment(globalChartEnvironment) } }
     val globalStates = remember { GlobalStates() }
     val states = remember { definition.charts.associateWith { States(globalStates) } }
+
+    if (input != collectFlow) {
+        collectJob?.cancel()
+        chartEnvironment.values.forEach { it.reset() }
+        scopes.clear()
+        collectFlow = input
+        collectJob = input.collect()
+    }
 
     Canvas(
         modifier
@@ -253,7 +261,7 @@ fun Modifier.fillEnvironment(
                             copy(
                                 x + delta * chartEnvironment.scale.value.x.pow(
                                     0.01f
-                                ) * 20
+                                ) * 100
                             )
                         }
                 }

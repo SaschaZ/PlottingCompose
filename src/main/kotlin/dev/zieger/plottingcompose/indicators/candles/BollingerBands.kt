@@ -36,7 +36,7 @@ data class BollingerBands(
     }
 
     override suspend fun ProcessingScope<ICandle>.process() {
-        (StdDev.key(param.length) with StdDev.STD_DEV).value()?.scalar?.toDouble()?.let { stdDev ->
+        (StdDev.key(param.length) dataOf StdDev.STD_DEV)?.scalar?.toDouble()?.let { stdDev ->
             (param.averageType(param.length) with when (param.averageType) {
                 AverageType.SMA -> Sma.SMA
                 AverageType.EMA -> Ema.EMA
@@ -45,7 +45,7 @@ data class BollingerBands(
                 set(HIGH, Output.Scalar(input.x, avg + width))
                 set(MID, Output.Scalar(input.x, avg))
                 set(LOW, Output.Scalar(input.x, avg - width))
-                set(BB_VALUES, BbValues(input.x, avg + width, avg, avg - width))
+                set(BB_VALUES, BbValues(input.x, avg - width, avg, avg + width))
             }
         }
     }

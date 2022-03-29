@@ -14,7 +14,7 @@ open class LineSeries<T : Input>(
     private val width: Float = 1f
 ) : PlotStyle<T>(slot) {
 
-    override fun IPlotDrawScope<T>.drawSeries(data: Map<InputContainer<T>, Map<Key<T>, List<PortValue<*>>>>) {
+    override fun IPlotDrawScope<T>.drawSeries(data: Map<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>>) {
         if (data.isEmpty()) return
 
         drawPath(Path().apply {

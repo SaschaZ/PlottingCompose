@@ -46,6 +46,9 @@ dependencies {
 
 tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "15"
+    kotlinOptions.freeCompilerArgs = listOf(
+        "-opt-in=kotlin.RequiresOptIn"
+    )
 }
 
 val projectVersion: String by project

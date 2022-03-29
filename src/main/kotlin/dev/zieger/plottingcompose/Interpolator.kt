@@ -71,11 +71,9 @@ sealed class Interpolator {
             val ts =
                 remember { ((0..tsAmount step 1) + (0..tsAmount step 1).map { tsAmount - it }).map { it / tsAmount.toDouble() } }
             var t by remember { mutableStateOf(ts.first()) }
-            val interpolator = remember {
-                listOf(
-                    Linear(), EaseIn(), EaseOut(), EaseInOut(), EaseInOut(0.5), Spike(), Spike(5.0)
-                )
-            }
+            val interpolator = listOf(
+                Linear(), EaseIn(), EaseOut(), EaseInOut(), EaseInOut(0.5), Spike(), Spike(5.0)
+            )
 
             var size by remember { mutableStateOf(IntSize.Zero) }
             LazyVerticalGrid(
