@@ -31,32 +31,32 @@ data class Label<I : Input>(
     val position: IPlotDrawScope<*>.(String, Offset) -> Offset = { c, pos ->
         val font = Font(null, fontSize)
         val lines = c.split('\n').map { it to TextLine.make(it, font) }
-        val labelWidth = lines.maxOf { it.second.width } / scale.value.x
-        val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value.y
+        val labelWidth = lines.maxOf { it.second.width } / finalScale.x
+        val labelHeight = lines.sumOf { it.second.height.toInt() } / finalScale.y
         when {
             pos.x < plotRect.left + plotRect.width * 0.5f -> Offset(
                 pos.x - padding,
                 pos.y - padding
             )
             else -> Offset(
-                pos.x - labelWidth * scale.value.x - padding,
+                pos.x - labelWidth * finalScale.x - padding,
                 pos.y - padding
             )
         }.let {
             when {
                 pos.y > plotRect.bottom - plotRect.height * 0.5f ->
-                    it.copy(y = it.y - labelHeight * scale.value.y * 2.05f)
+                    it.copy(y = it.y - labelHeight * finalScale.y * 2.05f)
                 else ->
-                    it.copy(y = it.y + labelHeight * scale.value.y * 1.2f)
+                    it.copy(y = it.y + labelHeight * finalScale.y * 1.2f)
             }
         }
     },
     val size: IPlotDrawScope<*>.(String) -> Size = { c ->
         val font = Font(null, fontSize)
         val lines = c.split('\n').map { it to TextLine.make(it, font) }
-        val labelWidth = lines.maxOf { it.second.width } / scale.value.x
-        val labelHeight = lines.sumOf { it.second.height.toInt() } / scale.value.y
-        Size(labelWidth + padding * 2 / scale.value.x, labelHeight + padding * 2 / scale.value.y)
+        val labelWidth = lines.maxOf { it.second.width } / finalScale.x
+        val labelHeight = lines.sumOf { it.second.height.toInt() } / finalScale.y
+        Size(labelWidth + padding * 2 / finalScale.x, labelHeight + padding * 2 / finalScale.y)
     }
 ) : PlotStyle<I>(ySlot, contentSlot) {
 
@@ -81,7 +81,7 @@ data class Label<I : Input>(
                     backgroundColor,
                     startTop,
                     size,
-                    CornerRadius(borderRoundCorner / scale.value.x, borderRoundCorner / scale.value.y),
+                    CornerRadius(borderRoundCorner / finalScale.x, borderRoundCorner / finalScale.y),
                     Fill,
                     backgroundColor.alpha
                 )
@@ -89,12 +89,12 @@ data class Label<I : Input>(
                     borderColor,
                     startTop,
                     size,
-                    CornerRadius(borderRoundCorner / scale.value.x, borderRoundCorner / scale.value.y),
-                    Stroke(borderWidth / scale.value.x),
+                    CornerRadius(borderRoundCorner / finalScale.x, borderRoundCorner / finalScale.y),
+                    Stroke(borderWidth / finalScale.x),
                     borderColor.alpha
                 )
                 lines.forEachIndexed { idx, line ->
-                    val scale = scale.value
+                    val scale = finalScale
                     val off = startTop.copy(
                         x = startTop.x + padding / scale.x,
                         y = startTop.y + (lines.take(idx + 1).sumOf { it.second.height.toInt() }) / scale.y

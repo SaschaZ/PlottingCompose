@@ -37,11 +37,13 @@ fun DrawScope.drawText(
 }
 
 fun DrawScope.drawRect(color: Color, rect: Rect, drawStyle: DrawStyle = Fill) =
-    drawRect(color, rect.topLeft, rect.size, style = drawStyle)
+    runCatching { drawRect(color, rect.topLeft, rect.size, style = drawStyle) }
 
 fun <T : Input, S : IChartDrawScope<T>> S.clipRect(rect: Rect, block: S.() -> Unit): Unit = rect.run {
-    clipRect(left, top, right, bottom, ClipOp.Intersect) {
-        block(this@clipRect)
+    runCatching {
+        clipRect(left, top, right, bottom, ClipOp.Intersect) {
+            block(this@clipRect)
+        }
     }
 }
 

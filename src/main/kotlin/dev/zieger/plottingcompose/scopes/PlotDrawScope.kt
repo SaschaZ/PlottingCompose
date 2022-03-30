@@ -5,10 +5,7 @@ package dev.zieger.plottingcompose.scopes
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import dev.zieger.plottingcompose.InputContainer
-import dev.zieger.plottingcompose.definition.Chart
-import dev.zieger.plottingcompose.definition.Input
-import dev.zieger.plottingcompose.definition.Key
-import dev.zieger.plottingcompose.definition.PortValue
+import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.x
 import dev.zieger.utils.misc.nullWhen
@@ -32,13 +29,13 @@ interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, ISt
     val yValueRange: ClosedRange<Double>?
     val xValueRange: ClosedRange<Double>
 
-    val yTicks: Map<Double, String>
-    val xTicks: Map<Double, String>
+    val yTicks: Map<Double, Set<String>>
+    val xTicks: Map<Double, Set<String>>
 
     val widthDivisor: Float
 
     val yLabelHeight: Float
-    val xLabelWidth: Float
+    val xLabelFontSize: Float
     fun Offset.toScene(): Offset
 
     val visibleXPixelRange: ClosedRange<Double>
@@ -74,23 +71,32 @@ fun <T : Input> PlotDrawScope(
         )
     }
 
-    override val widthDivisor: Float = scale.value.x / 10
+    override val widthDivisor: Float get() = finalScale.x
 
-    override val visibleXPixelRange: ClosedRange<Double> = plotRect.run {
-        -finalTranslation.x.toDouble()..-finalTranslation.x.toDouble() + width
-    }
+    override val visibleXPixelRange: ClosedRange<Double>
+        get() = plotRect.run {
+            -finalTranslation.x.toDouble()..-finalTranslation.x.toDouble() + width
+        }
 
     private val rawData = scopes.chartData(chart)
-    override val rawXRange: ClosedRange<Float> =
-        rawData.nullWhen { it.isEmpty() }
-            ?.run { minOf { it.key.idx / widthDivisor }..maxOf { it.key.idx / widthDivisor } }
-            ?: 0f..0f
+    override val rawXRange: ClosedRange<Float>
+        get() =
+            rawData.nullWhen { it.isEmpty() }
+                ?.run { minOf { it.key.idx / widthDivisor }..maxOf { it.key.idx / widthDivisor } }
+                ?: 0f..0f
 
     private var startIdx = 0
     private var endIdx = 0
 
     override val chartData: Map<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>> = rawData.let { data ->
         if (data.size <= 2) return@let emptyMap()
+
+        scaleOffset.value = when (val area = chart.visibleArea.numData) {
+            NumData.All -> scaleOffset.value.copy(data.size / plotRect.width - 1f)
+            is NumData.Fixed -> scaleOffset.value.copy(area.numData / plotRect.width - 1f)
+        }
+
+        translationOffsetX.value = (-rawXRange.endInclusive + plotRect.width * chart.visibleArea.relativeEnd)
 
         startIdx =
             data.entries.indexOfFirst { (input, _) -> input.idx / widthDivisor >= visibleXPixelRange.start }
@@ -99,10 +105,10 @@ fun <T : Input> PlotDrawScope(
                 ?.coerceAtLeast(0) ?: 0
 
         endIdx =
-            data.entries.indexOfLast { (input, _) -> input.idx / widthDivisor <= visibleXPixelRange.endInclusive }
+            (data.entries.indexOfLast { (input, _) -> input.idx / widthDivisor <= visibleXPixelRange.endInclusive }
                 .takeIf { it >= 0 }
-                ?.let { it + 5 }
-                ?.coerceAtMost(data.size) ?: 150
+                ?.let { it + 5 } ?: 150)
+                .coerceAtMost(data.size)
 
         data.entries.toList().subList(startIdx, endIdx)
             .associate { (k, v) -> k to v }.also { cd ->
@@ -120,22 +126,35 @@ fun <T : Input> PlotDrawScope(
         }
 
     override val xValueRange: ClosedRange<Double> = chartData.xValueRange()
-    override val xTicks: Map<Double, String> = chart.xTicks(this, startIdx..endIdx, xValueRange).also { xTicks ->
-        xLabelHeight.value =
-            (xTicks.values.toList().nullWhenEmpty()
-                ?.run { get(size / 2) }?.size(20f)?.height)?.toDouble() ?: 0.0
+    override val xTicks: Map<Double, Set<String>> = chart.xTicks(this, startIdx..endIdx, xValueRange)
+
+    override val xLabelFontSize: Float = run {
+        fun xTicksFontSize(fontSize: Float): Float =
+            xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.maxOf { it.size(fontSize).width } ?: 0f
+
+        val numVisible = xTicks.count { it.key / widthDivisor in visibleXPixelRange }
+        var fontSize = 20f
+        if (numVisible > 0)
+            while (xTicksFontSize(fontSize) > plotRect.width / numVisible) fontSize -= 0.5f
+        fontSize
+    }.also { fontSize ->
+        xLabelHeight.value = xTicks.values.toList().nullWhenEmpty()
+            ?.run { get(size / 2) }?.sumOf { it.size(fontSize).height.toDouble() } ?: 0.0
     }
-    override val xLabelWidth = xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.size(20f)?.width ?: 0f
 
     override val yValueRange: ClosedRange<Double>? = chartData.yValueRange()?.also {
-        heightDivisor.value = it.range() / plotRect.height
+        val marginRel = chart.margin.top(chartSize.value).value / chartSize.value.height +
+                chart.margin.bottom(chartSize.value).value / chartSize.value.height
+        heightDivisor.value = (it.range() * (1 + marginRel)) / plotRect.height
     }
-    override val yTicks: Map<Double, String> = yValueRange?.let {
-        chart.yTicks(this, it).also { yTicks ->
-            yLabelWidth.value = (yTicks.values.maxByOrNull { it.length }?.size(20f)?.width)?.toDouble() ?: 0.0
+    override val yTicks: Map<Double, Set<String>> = yValueRange?.let { yValueRange ->
+        chart.yTicks(this, yValueRange).also { yTicks ->
+            yLabelWidth.value = yTicks.values.maxByOrNull { it.maxOf { set -> set.length } }
+                ?.maxOf { it.size(20f).width.toDouble() } ?: 0.0
         }
     } ?: emptyMap()
-    override val yLabelHeight = yTicks.values.maxByOrNull { it.length }?.size(20f)?.height ?: 0f
+    override val yLabelHeight = yTicks.values.maxByOrNull { set -> set.maxOf { it.length } }
+        ?.maxOf { it.size(20f).height } ?: 0f
 
     override val yLabelRect: Rect = rect.run {
         Rect(
@@ -153,7 +172,7 @@ fun <T : Input> PlotDrawScope(
         Rect(
             left,
             bottom - (if (chart.drawXLabels) xLabelHeight.value.toFloat() else 0f),
-            right - (if (chart.drawYLabels) yLabelWidth.value.toFloat() else 0f),
+            right - (if (chart.drawYLabels) yLabelWidth.value.toFloat() * 1.1f else 0f),
             bottom
         )
     }
@@ -174,8 +193,8 @@ fun <T : Input> PlotDrawScope(
     override val visibleYPixelRange: ClosedRange<Double>? = plotRect.run {
         yValueRange?.run { start / heightDivisor.value.toFloat()..endInclusive / heightDivisor.value.toFloat() }
     }?.also { visibleYPixelRange ->
-        translationOffsetY.value = visibleYPixelRange.start.toFloat()
-        translationOffsetX.value = (-rawXRange.endInclusive + plotRect.width * scaleCenterRelative.value.x)
+        val relMargin = chart.margin.bottom(chartSize.value).value / chartSize.value.height
+        translationOffsetY.value = visibleYPixelRange.start.toFloat() - plotRect.height * relMargin
     }
 
     override fun Offset.toScene(): Offset =

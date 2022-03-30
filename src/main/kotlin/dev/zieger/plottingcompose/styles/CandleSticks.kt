@@ -60,7 +60,7 @@ open class CandleSticks<I : Input>(
             lineColor,
             topLeft,
             bodySize,
-            alpha = (lineColor.alpha * (scale.value.x - 1f)).coerceIn(0f..1f),
+            alpha = (lineColor.alpha * (finalScale.x - 1f)).coerceIn(0f..1f),
             style = Stroke(lineWidth / widthDivisor)
         )
 

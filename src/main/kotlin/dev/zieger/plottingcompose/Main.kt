@@ -20,10 +20,9 @@ import dev.zieger.plottingcompose.bitinex.*
 import dev.zieger.plottingcompose.bitinex.BitfinexInterval.H1
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.USD
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.XMR
-import dev.zieger.plottingcompose.definition.Chart
-import dev.zieger.plottingcompose.definition.ChartDefinition
-import dev.zieger.plottingcompose.definition.TickHelper
-import dev.zieger.plottingcompose.definition.with
+import dev.zieger.plottingcompose.definition.*
+import dev.zieger.plottingcompose.definition.TickHelper.ticksIdx
+import dev.zieger.plottingcompose.definition.TickHelper.timeFormat
 import dev.zieger.plottingcompose.indicators.candles.*
 import dev.zieger.plottingcompose.strategy.BbStrategy
 import dev.zieger.plottingcompose.strategy.BbStrategyOptions
@@ -37,11 +36,6 @@ import dev.zieger.utils.time.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlin.math.absoluteValue
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.random.Random
-import kotlin.random.nextInt
 
 fun buildByBitFlow(
     scope: CoroutineScope,
@@ -62,30 +56,10 @@ fun buildBitfinexFlow(
 
 fun main() = application {
     MaterialTheme(MaterialTheme.colors.copy(background = Color.Black, onBackground = Color.White)) {
-        fun randomOhcl(time: Long, lastClose: Double? = null): Ohcl.Companion.Ohcl {
-            val open = lastClose ?: (Random.nextDouble() * 20_000 + 100_000.0)
-            val close =
-                open + Random.nextDouble() * 10_000 * (if (Random.nextBoolean()) 1 else -1) * when (Random.nextInt(1..20)) {
-                    20 -> 5
-                    else -> 1
-                }
-            val high = max(open, close) + Random.nextDouble() * 5_000.0
-            val low = min(open, close) - Random.nextDouble() * 5_000.0
-            return Ohcl.Companion.Ohcl(
-                open, high, close, low, Random.nextDouble().absoluteValue % 2000L, time
-            )
-        }
-
         val scope = rememberCoroutineScope()
 
         val byBitFlow = remember { mutableStateOf<Flow<ICandle>>(buildByBitFlow(scope)) }
         val finexFlow = remember { mutableStateOf<Flow<ICandle>>(buildBitfinexFlow(scope)) }
-//        val generated = remember {
-//            var lastClose: Double? = null
-//            ("1.10.2018".parse().millisLong.."1.5.2022".parse().millisLong step 1.hours.millisLong).map { time ->
-//                randomOhcl(time, lastClose).also { c -> lastClose = c.close }
-//            }.asFlow()
-//        }
 
         val chartDefinition = remember {
             val bbOptions = BollingerBandsParameter(20, 2.0, AverageType.SMA)
@@ -134,10 +108,11 @@ fun main() = application {
                             color = Color.Magenta, width = 0.5f
                         )
                     }.toTypedArray(),
-//                        Dot(SupRes.key(SupResParameter()) with SupRes.MIN, Color.Magenta, 10f),
-//                        Dot(SupRes.key(SupResParameter()) with SupRes.MAX, Color.Cyan, 10f),
                     verticalWeight = 0.8f,
-                    drawXLabels = false
+                    drawXLabels = false,
+                    xTicks = { idxRange, xRange ->
+                        idxRange.ticksIdx(chartSize.value.width, 150f).timeFormat(xRange, idxRange)
+                    }
                 ),
                 Chart(
                     SingleFocusable(
@@ -154,9 +129,13 @@ fun main() = application {
                     ),
                     verticalWeight = 0.2f,
                     yTicks = {
-                        TickHelper.ticksY(it, chartSize.value.height, 150f)
+                        TickHelper.ticksY(it, chartSize.value.height, 250f)
+                    },
+                    xTicks = { idxRange, xRange ->
+                        idxRange.ticksIdx(chartSize.value.width, 150f).timeFormat(xRange, idxRange)
                     }
-                )
+                ),
+                visibleArea = VisibleArea(0.8f, NumData.Fixed(300))
             )
         }
 
