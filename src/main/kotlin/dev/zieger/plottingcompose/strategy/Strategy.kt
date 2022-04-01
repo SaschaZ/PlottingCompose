@@ -1,11 +1,15 @@
 package dev.zieger.plottingcompose.strategy
 
 import dev.zieger.plottingcompose.definition.Key
+import dev.zieger.plottingcompose.definition.Output
 import dev.zieger.plottingcompose.definition.Port
 import dev.zieger.plottingcompose.indicators.Indicator
 import dev.zieger.plottingcompose.indicators.candles.ICandle
 import dev.zieger.plottingcompose.processor.ProcessingScope
+import dev.zieger.plottingcompose.scopes.nullWhenEmpty
 import dev.zieger.plottingcompose.strategy.dto.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class StrategyParameter(
     val initialCash: Double = 10_000.0,
@@ -33,13 +37,13 @@ abstract class Strategy<I : ICandle>(
             BULL_BUY_TRADES(0),
             *(0..param.maxOrdersPerSide).map { BEAR_SELL_TRADES(it) }.toTypedArray(),
             BEAR_BUY_TRADES(0),
-            POSITION
+            POSITION, POSITION_AVERAGE_PRICE, POSITION_DIFF
         )
 
-        fun BULL_BUY_ORDERS(idx: Int) = Port<Order>("BullBuyOrders$idx", false)
-        fun BULL_SELL_ORDERS(idx: Int) = Port<Order>("BullSellOrders$idx", false)
-        fun BEAR_BUY_ORDERS(idx: Int) = Port<Order>("BearBuyOrders$idx", false)
-        fun BEAR_SELL_ORDERS(idx: Int) = Port<Order>("BearSellOrders$idx", false)
+        fun BULL_BUY_ORDERS(idx: Int) = Port<Order<BullBuy>>("BullBuyOrders$idx", false)
+        fun BULL_SELL_ORDERS(idx: Int) = Port<Order<BullSell>>("BullSellOrders$idx", false)
+        fun BEAR_BUY_ORDERS(idx: Int) = Port<Order<BearBuy>>("BearBuyOrders$idx", false)
+        fun BEAR_SELL_ORDERS(idx: Int) = Port<Order<BearSell>>("BearSellOrders$idx", false)
 
         fun BULL_BUY_TRADES(idx: Int) = Port<Trade>("BullBuyTrades$idx", false)
         fun BULL_SELL_TRADES(idx: Int) = Port<Trade>("BullSellTrades$idx", false)
@@ -47,60 +51,106 @@ abstract class Strategy<I : ICandle>(
         fun BEAR_SELL_TRADES(idx: Int) = Port<Trade>("BearSellTrades$idx", false)
 
         val POSITION = Port<Position>("Position", false)
+        val POSITION_AVERAGE_PRICE = Port<Output.Scalar>("PositionAveragePrice")
+        val POSITION_DIFF = Port<Output.Scalar>("PositionDiff", false)
     }
 
     private lateinit var currentInput: I
 
-    private val bullBuys = HashMap<Int, Order>()
-    private val bullSells = HashMap<Int, Order>()
-    private val bearBuys = HashMap<Int, Order>()
-    private val bearSells = HashMap<Int, Order>()
+    private val orderMutex = Mutex()
 
-    protected fun processUnreferenced(scope: ProcessingScope<I>) = scope.run {
+    private val bullBuys = HashMap<Int, Order<BullBuy>?>(param.maxOrdersPerSide)
+    private val bullSells = HashMap<Int, Order<BullSell>?>(param.maxOrdersPerSide)
+    private val bearBuys = HashMap<Int, Order<BearBuy>?>(param.maxOrdersPerSide)
+    private val bearSells = HashMap<Int, Order<BearSell>?>(param.maxOrdersPerSide)
+
+    private var prevClosed: Position? = null
+
+    abstract suspend fun ProcessingScope<I>.placeOrders()
+
+    override suspend fun ProcessingScope<I>.process() {
         currentInput = input
-        internalExchange.process(scope)
+        placeOrders()
+        internalExchange.processCandle(this)
 
-        bullBuys.forEach { (idx, order) -> set(BULL_BUY_ORDERS(idx), order) }
-        bullBuys.clear()
-        bullSells.forEach { (idx, order) -> set(BULL_SELL_ORDERS(idx), order) }
-        bullSells.clear()
-        bearBuys.forEach { (idx, order) -> set(BEAR_BUY_ORDERS(idx), order) }
-        bearBuys.clear()
-        bearSells.forEach { (idx, order) -> set(BEAR_SELL_ORDERS(idx), order) }
-        bearSells.clear()
-
-//        position?.also { set(POSITION, it) }
+        orderMutex.withLock {
+            bullBuys.values.filterNotNull().nullWhenEmpty()?.sortedByDescending { it.counterPrice }
+                ?.forEach { order -> set(BULL_BUY_ORDERS(order.slot), order) }
+            bullSells.values.filterNotNull().nullWhenEmpty()?.sortedBy { it.counterPrice }
+                ?.forEach { order -> set(BULL_SELL_ORDERS(order.slot), order) }
+            bearBuys.values.filterNotNull().nullWhenEmpty()?.sortedBy { it.counterPrice }
+                ?.forEach { order -> set(BEAR_BUY_ORDERS(order.slot), order) }
+            bearSells.values.filterNotNull().nullWhenEmpty()?.sortedByDescending { it.counterPrice }
+                ?.forEach { order -> set(BEAR_SELL_ORDERS(order.slot), order) }
+            closedPositions.lastOrNull()?.takeIf { it.isClosed && it != prevClosed }?.also { closed ->
+                prevClosed = closed
+                set(
+                    POSITION_DIFF, Output.Scalar(
+                        input.x, closed.counterDiff * when (closed.direction) {
+                            Direction.BUY -> -1
+                            Direction.SELL -> 1
+                            else -> throw IllegalStateException("Direction of closed position can not be null")
+                        }
+                    )
+                )
+            }
+            position?.also {
+                set(POSITION, it)
+                set(POSITION_AVERAGE_PRICE, Output.Scalar(input.x, it.averageCounterPrice))
+            }
+        }
     }
 
-    override fun order(order: Order, listener: RemoteOrderListener?): RemoteOrder =
-        internalExchange.order(order, listener).also {
-            when (order.direction) {
-                Direction.SELL -> when (order.counterPrice < currentInput.close) {
-                    true -> bearSells[bearBuys.size] = order
-                    false -> bullSells[bullSells.size] = order
+    override suspend fun <O : Order<O>> order(order: O, listener: RemoteOrderListener<O>?): RemoteOrder<O> =
+        internalExchange.order(order, listener).apply {
+            onPlaced {
+                orderMutex.withLock {
+                    when (val o = it.order) {
+                        is BullBuy -> bullBuys[o.slot] = o
+                        is BullSell -> bullSells[o.slot] = o
+                        is BearBuy -> bearBuys[o.slot] = o
+                        is BearSell -> bearSells[o.slot] = o
+                    }
                 }
-                Direction.BUY -> when (order.counterPrice > currentInput.close) {
-                    true -> bearBuys[bearBuys.size] = order
-                    false -> bullBuys[bullSells.size] = order
-                }
-            }
 
-//            it.listener.add(object : RemoteOrderListener {
-//                override fun onOrderPlaced(order: RemoteOrder) {
-//                    TODO("Not yet implemented")
-//                }
-//
-//                override fun onOrderExecuted(order: Trade) {
-//                    TODO("Not yet implemented")
-//                }
-//
-//                override fun onOrderCancelled(order: Order) {
-//                    TODO("Not yet implemented")
-//                }
-//
-//                override fun onOrderChanged(order: RemoteOrder) {
-//                    TODO("Not yet implemented")
-//                }
-//            })
+                false
+            }
+            onExecuted {
+                orderMutex.withLock {
+                    when (val o = it.order) {
+                        is BullBuy -> bullBuys[o.slot] = null
+                        is BullSell -> bullSells[o.slot] = null
+                        is BearBuy -> bearBuys[o.slot] = null
+                        is BearSell -> bearSells[o.slot] = null
+                    }
+                }
+                true
+            }
+            onChanged { order ->
+                orderMutex.withLock {
+                    when (val o = order.order) {
+                        is BullBuy -> bullBuys[o.slot] = o
+                        is BullSell -> bullSells[o.slot] = o
+                        is BearBuy -> bearBuys[o.slot] = o
+                        is BearSell -> bearSells[o.slot] = o
+                        else -> Unit
+                    }
+                }
+                println("order #${order.order.slot} ${order.order.type} changed to ${order.order.counterPrice}")
+                false
+            }
+            onCancelled {
+                orderMutex.withLock {
+                    when (val o = it.order) {
+                        is BullBuy -> bullBuys[o.slot] = null
+                        is BullSell -> bullSells[o.slot] = null
+                        is BearBuy -> bearBuys[o.slot] = null
+                        is BearSell -> bearSells[o.slot] = null
+                        else -> Unit
+                    }
+                }
+
+                true
+            }
         }
 }

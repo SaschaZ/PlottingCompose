@@ -24,10 +24,10 @@ class Impulses<I : Input>(
             false -> negativeColor
         }
         Offset(0f, slot.value()?.scalar?.toFloat() ?: 0f).let { offset ->
-            val size = Size(0.85f / widthDivisor, offset.y / heightDivisor.value.toFloat())
+            val size = Size((0.85f / widthDivisor).toFloat(), offset.y / heightDivisor.value.toFloat())
             if (size.width < 0 || size.height < 0) return
             val topLeft = offset.copy(
-                x = plotRect.left + idx / widthDivisor - size.width / 2,
+                x = (plotRect.left + idx / widthDivisor - size.width / 2).toFloat(),
                 y = plotRect.bottom - size.height
             )
             drawRect(color, topLeft, size, color.alpha, Fill)

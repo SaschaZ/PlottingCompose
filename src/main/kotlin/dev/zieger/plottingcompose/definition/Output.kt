@@ -33,7 +33,7 @@ sealed class Output {
     }
 
     open class Label(x: Number, y: Number, val label: String) : Scalar(x, y)
-    open class Lambda(x: Number, y: Number, val lambda: (Number) -> Boolean) : Scalar(x, y)
+    open class Lambda<R>(x: Number, y: Number, val lambda: (Number) -> R) : Scalar(x, y)
     open class Container<V : Output>(open val items: List<V>) : Output() {
         override val xRange: ClosedRange<Double> get() = items.minOf { it.xRange.start }..items.maxOf { it.xRange.endInclusive }
         override val yRange: ClosedRange<Double> get() = items.minOf { it.yRange.start }..items.maxOf { it.yRange.endInclusive }

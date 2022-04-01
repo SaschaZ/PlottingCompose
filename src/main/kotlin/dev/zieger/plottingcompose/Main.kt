@@ -21,8 +21,8 @@ import dev.zieger.plottingcompose.bitinex.BitfinexInterval.H1
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.USD
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.XMR
 import dev.zieger.plottingcompose.definition.*
+import dev.zieger.plottingcompose.definition.TickHelper.doubleFormat
 import dev.zieger.plottingcompose.definition.TickHelper.ticksIdx
-import dev.zieger.plottingcompose.definition.TickHelper.timeFormat
 import dev.zieger.plottingcompose.indicators.candles.*
 import dev.zieger.plottingcompose.strategy.BbStrategy
 import dev.zieger.plottingcompose.strategy.BbStrategyOptions
@@ -70,15 +70,15 @@ fun main() = application {
                 Chart(
                     LineSeries(
                         bbKey with BollingerBands.HIGH,
-                        Color.Yellow.copy(alpha = 0.5f), 1f
+                        Color.Yellow.copy(alpha = 0.5f), width = 1f
                     ),
                     LineSeries(
                         bbKey with BollingerBands.MID,
-                        Color.Yellow.copy(alpha = 0.5f), 1f
+                        Color.Yellow.copy(alpha = 0.5f), width = 1f
                     ),
                     LineSeries(
                         bbKey with BollingerBands.LOW,
-                        Color(0xFF7700).copy(alpha = 0.5f), 1f
+                        Color(0xFF7700).copy(alpha = 0.5f), width = 1f
                     ),
                     FillBetween(
                         (bbKey with BollingerBands.HIGH) to
@@ -99,19 +99,23 @@ fun main() = application {
                     *(0..bbStrategyKey.param.dcaNumMax).map { idx ->
                         LineSeries(
                             bbStrategyKey with Strategy.BULL_BUY_ORDERS(idx),
-                            color = Color.Cyan, width = 0.5f
+                            lineColor = Color.Cyan, width = 0.5f
                         )
                     }.toTypedArray(),
                     *(0..bbStrategyKey.param.dcaNumMax).map { idx ->
                         LineSeries(
                             bbStrategyKey with Strategy.BEAR_SELL_ORDERS(idx),
-                            color = Color.Magenta, width = 0.5f
+                            lineColor = Color.Magenta, width = 0.5f
                         )
                     }.toTypedArray(),
+                    LineSeries(
+                        bbStrategyKey with Strategy.POSITION_AVERAGE_PRICE, Color.Yellow,
+                        colorSlot = bbStrategyKey with Strategy.POSITION_DIFF, width = 1f
+                    ),
                     verticalWeight = 0.8f,
                     drawXLabels = false,
-                    xTicks = { idxRange, xRange ->
-                        idxRange.ticksIdx(chartSize.value.width, 150f).timeFormat(xRange, idxRange)
+                    xTicks = { idxRange, xRange, amount ->
+                        idxRange.ticksIdx(amount, 50f).doubleFormat()
                     }
                 ),
                 Chart(
@@ -129,10 +133,10 @@ fun main() = application {
                     ),
                     verticalWeight = 0.2f,
                     yTicks = {
-                        TickHelper.ticksY(it, chartSize.value.height, 250f)
+                        TickHelper.ticksY(it, 4)
                     },
-                    xTicks = { idxRange, xRange ->
-                        idxRange.ticksIdx(chartSize.value.width, 150f).timeFormat(xRange, idxRange)
+                    xTicks = { idxRange, xRange, amount ->
+                        idxRange.ticksIdx(amount, 50f).doubleFormat()
                     }
                 ),
                 visibleArea = VisibleArea(0.8f, NumData.Fixed(300))

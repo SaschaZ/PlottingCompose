@@ -9,9 +9,9 @@ import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 import kotlin.reflect.cast
 
-open class PlotStyle<I : Input>(vararg slot: Slot<I, *>) {
+open class PlotStyle<I : Input>(vararg slot: Slot<I, *>?) {
 
-    val slots: List<Slot<I, *>> = slot.toList()
+    val slots: List<Slot<I, *>> = slot.toList().filterNotNull()
     internal lateinit var data: Map<Key<I, *>, List<PortValue<*>>>
 
     open fun IPlotDrawScope<I>.drawSeries(data: Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>) {

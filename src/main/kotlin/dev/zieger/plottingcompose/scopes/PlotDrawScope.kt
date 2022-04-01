@@ -7,14 +7,13 @@ import androidx.compose.ui.geometry.Rect
 import dev.zieger.plottingcompose.InputContainer
 import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.processor.ProcessingScope
-import dev.zieger.plottingcompose.x
 import dev.zieger.utils.misc.nullWhen
 import dev.zieger.utils.misc.whenNotNull
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
 import kotlin.math.absoluteValue
 
-interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, IStates {
+interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment {
     val chart: Chart<T>
     val chartData: Map<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>>
 
@@ -29,10 +28,10 @@ interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, ISt
     val yValueRange: ClosedRange<Double>?
     val xValueRange: ClosedRange<Double>
 
-    val yTicks: Map<Double, Set<String>>
-    val xTicks: Map<Double, Set<String>>
+    val yTicks: Ticks
+    val xTicks: Ticks
 
-    val widthDivisor: Float
+    val widthDivisor: Double
 
     val yLabelHeight: Float
     val xLabelFontSize: Float
@@ -40,6 +39,8 @@ interface IPlotDrawScope<T : Input> : IChartDrawScope<T>, IChartEnvironment, ISt
 
     val visibleXPixelRange: ClosedRange<Double>
     val visibleYPixelRange: ClosedRange<Double>?
+    var visibleItemXRange: ClosedRange<Float>
+    val visibleXItemIndices: ClosedRange<Int>
     val rawXRange: ClosedRange<Float>
 }
 
@@ -47,10 +48,9 @@ fun <T : Input> PlotDrawScope(
     chart: Chart<T>,
     chartDrawScope: IChartDrawScope<T>,
     chartEnvironment: IChartEnvironment,
-    states: IStates,
     rect: Rect
 ): IPlotDrawScope<T> = object : IPlotDrawScope<T>, IChartDrawScope<T> by chartDrawScope,
-    IChartEnvironment by chartEnvironment, IStates by states {
+    IChartEnvironment by chartEnvironment {
 
     override val chart: Chart<T> = chart
 
@@ -71,7 +71,7 @@ fun <T : Input> PlotDrawScope(
         )
     }
 
-    override val widthDivisor: Float get() = finalScale.x
+    override val widthDivisor: Double get() = finalScale.x
 
     override val visibleXPixelRange: ClosedRange<Double>
         get() = plotRect.run {
@@ -80,65 +80,76 @@ fun <T : Input> PlotDrawScope(
 
     private val rawData = scopes.chartData(chart)
     override val rawXRange: ClosedRange<Float>
-        get() =
-            rawData.nullWhen { it.isEmpty() }
-                ?.run { minOf { it.key.idx / widthDivisor }..maxOf { it.key.idx / widthDivisor } }
-                ?: 0f..0f
+        get() = rawData.nullWhen { it.isEmpty() }
+            ?.run { minOf { it.key.idx / widthDivisor }.toFloat()..maxOf { it.key.idx / widthDivisor }.toFloat() }
+            ?: 0f..0f
 
-    private var startIdx = 0
-    private var endIdx = 0
+    override var visibleItemXRange: ClosedRange<Float> = 0f..0f
+    override var visibleXItemIndices: ClosedRange<Int> = 0..0
 
     override val chartData: Map<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>> = rawData.let { data ->
         if (data.size <= 2) return@let emptyMap()
 
-        scaleOffset.value = when (val area = chart.visibleArea.numData) {
-            NumData.All -> scaleOffset.value.copy(data.size / plotRect.width - 1f)
-            is NumData.Fixed -> scaleOffset.value.copy(area.numData / plotRect.width - 1f)
-        }
+        applyScaleRange(data.size, plotRect)
+        applyScaleOffset(chart.visibleArea, data.size, plotRect.width)
+        applyTranslationOffsetX(chart.visibleArea, rawXRange, plotRect, data.size, widthDivisor.toFloat())
 
-        translationOffsetX.value = (-rawXRange.endInclusive + plotRect.width * chart.visibleArea.relativeEnd)
-
-        startIdx =
-            data.entries.indexOfFirst { (input, _) -> input.idx / widthDivisor >= visibleXPixelRange.start }
+        visibleXItemIndices =
+            (data.entries.indexOfFirst { (input, _) -> input.idx / widthDivisor >= visibleXPixelRange.start }
                 .takeIf { it >= 0 }
                 ?.let { it - 5 }
-                ?.coerceAtLeast(0) ?: 0
+                ?.coerceAtLeast(0) ?: 0)..0
 
-        endIdx =
-            (data.entries.indexOfLast { (input, _) -> input.idx / widthDivisor <= visibleXPixelRange.endInclusive }
-                .takeIf { it >= 0 }
-                ?.let { it + 5 } ?: 150)
+        visibleXItemIndices =
+            visibleXItemIndices.start..(data.entries.indexOfLast { (input, _) -> input.idx / widthDivisor <= visibleXPixelRange.endInclusive }
+                .takeIf { it >= 0 } ?: 150)
                 .coerceAtMost(data.size)
 
-        data.entries.toList().subList(startIdx, endIdx)
+        visibleItemXRange = (visibleXItemIndices.start / widthDivisor).toFloat()..
+                (visibleXItemIndices.endInclusive / widthDivisor).toFloat()
+
+        data.entries.toList().subList(visibleXItemIndices)
             .associate { (k, v) -> k to v }.also { cd ->
-                focusedItemIdx.value = findFocusedItemIdx(cd)
+                focusedItemIdx.value = findFocusedItemIdx(cd, visibleXItemIndices)
                     ?: focusedItemIdx.value.nullWhen { mousePosition.value?.let { rootRect.contains(it) } != true }
             }
     }
 
-    private fun findFocusedItemIdx(data: Map<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>>): FocusedInfo? =
+    private fun findFocusedItemIdx(
+        data: Map<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>>,
+        idxRange: ClosedRange<Int>
+    ): FocusedInfo? =
         mousePosition.value?.takeIf { plotRect.contains(it) }?.let { mp ->
             val relX = mp.x - plotRect.left - finalTranslation.x
             val d = data.entries.toList()
             d.minByOrNull { (it.key.idx / widthDivisor - relX).absoluteValue }
-                ?.let { (input, _) -> FocusedInfo(input.idx, input.idx / widthDivisor + finalTranslation.x) }
+                ?.let { (input, _) ->
+                    FocusedInfo(
+                        input.idx,
+                        (input.idx / widthDivisor + finalTranslation.x).toFloat(),
+                        idxRange
+                    )
+                }
         }
 
     override val xValueRange: ClosedRange<Double> = chartData.xValueRange()
-    override val xTicks: Map<Double, Set<String>> = chart.xTicks(this, startIdx..endIdx, xValueRange)
+    override val xTicks: Ticks = chart.xTicks(this,
+        visibleXItemIndices,
+        rawData.minOf { it.key.input.x.toDouble() }..rawData.maxOf { it.key.input.x.toDouble() },
+        (10 / scale.value.x).toInt()
+    )
 
     override val xLabelFontSize: Float = run {
         fun xTicksFontSize(fontSize: Float): Float =
-            xTicks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.maxOf { it.size(fontSize).width } ?: 0f
+            xTicks.ticks.values.toList().nullWhenEmpty()?.run { get(size / 2) }?.maxOf { it.size(fontSize).width } ?: 0f
 
-        val numVisible = xTicks.count { it.key / widthDivisor in visibleXPixelRange }
+        val numVisible = xTicks.ticks.count { it.key / widthDivisor in visibleXPixelRange }
         var fontSize = 20f
         if (numVisible > 0)
             while (xTicksFontSize(fontSize) > plotRect.width / numVisible) fontSize -= 0.5f
         fontSize
     }.also { fontSize ->
-        xLabelHeight.value = xTicks.values.toList().nullWhenEmpty()
+        xLabelHeight.value = xTicks.ticks.values.toList().nullWhenEmpty()
             ?.run { get(size / 2) }?.sumOf { it.size(fontSize).height.toDouble() } ?: 0.0
     }
 
@@ -147,18 +158,18 @@ fun <T : Input> PlotDrawScope(
                 chart.margin.bottom(chartSize.value).value / chartSize.value.height
         heightDivisor.value = (it.range() * (1 + marginRel)) / plotRect.height
     }
-    override val yTicks: Map<Double, Set<String>> = yValueRange?.let { yValueRange ->
+    override val yTicks: Ticks = yValueRange?.let { yValueRange ->
         chart.yTicks(this, yValueRange).also { yTicks ->
-            yLabelWidth.value = yTicks.values.maxByOrNull { it.maxOf { set -> set.length } }
+            yLabelWidth.value = yTicks.ticks.values.maxByOrNull { it.maxOf { set -> set.length } }
                 ?.maxOf { it.size(20f).width.toDouble() } ?: 0.0
         }
-    } ?: emptyMap()
-    override val yLabelHeight = yTicks.values.maxByOrNull { set -> set.maxOf { it.length } }
+    } ?: Ticks()
+    override val yLabelHeight = yTicks.ticks.values.maxByOrNull { set -> set.maxOf { it.length } }
         ?.maxOf { it.size(20f).height } ?: 0f
 
     override val yLabelRect: Rect = rect.run {
         Rect(
-            right - (if (chart.drawYLabels) yLabelWidth.value.toFloat() else 0f), top, right,
+            right - (if (chart.drawYLabels) (yLabelWidth.value.toFloat()) else 0f), top, right,
             bottom - (if (chart.drawXLabels) xLabelHeight.value.toFloat() else 0f) -
                     chart.tickLength(chartSize.value).value / 2f
         )
@@ -193,12 +204,11 @@ fun <T : Input> PlotDrawScope(
     override val visibleYPixelRange: ClosedRange<Double>? = plotRect.run {
         yValueRange?.run { start / heightDivisor.value.toFloat()..endInclusive / heightDivisor.value.toFloat() }
     }?.also { visibleYPixelRange ->
-        val relMargin = chart.margin.bottom(chartSize.value).value / chartSize.value.height
-        translationOffsetY.value = visibleYPixelRange.start.toFloat() - plotRect.height * relMargin
+        applyTranslationOffsetY(chart, visibleYPixelRange, plotRect)
     }
 
     override fun Offset.toScene(): Offset =
-        Offset(plotRect.left + x / widthDivisor, plotRect.bottom - y / heightDivisor.value.toFloat())
+        Offset((plotRect.left + x / widthDivisor).toFloat(), plotRect.bottom - y / heightDivisor.value.toFloat())
 
     private fun <I : Input> Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>.yValueRange(): ClosedRange<Double>? {
         if (isEmpty() || flatMap { it.value.values }.isEmpty()) return 0.0..0.0
@@ -228,6 +238,9 @@ fun <T : Input> PlotDrawScope(
         return xMin..xMax
     }
 }
+
+private fun <E> List<E>.subList(range: ClosedRange<Int>): List<E> =
+    subList(range.start, range.endInclusive)
 
 private operator fun Offset.div(size: Rect): Offset =
     Offset(x / size.width, y / size.height)

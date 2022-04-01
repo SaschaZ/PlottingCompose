@@ -14,7 +14,6 @@ interface IChartDrawScope<T : Input> : DrawScope {
     val definition: ChartDefinition<T>
     val scopes: Map<Long, ProcessingScope<T>>
     val chartEnvironment: Map<Chart<T>, IChartEnvironment>
-    val states: Map<Chart<T>, IStates>
 
     val IChartEnvironment.rootRect: Rect
     val IChartEnvironment.chartRect: Rect
@@ -24,15 +23,13 @@ fun <T : Input> ChartDrawScope(
     definition: ChartDefinition<T>,
     drawScope: DrawScope,
     scopes: Map<Long, ProcessingScope<T>>,
-    chartEnvironment: Map<Chart<T>, IChartEnvironment>,
-    states: Map<Chart<T>, IStates>,
+    chartEnvironment: Map<Chart<T>, IChartEnvironment>
 ): IChartDrawScope<T> = object : IChartDrawScope<T>,
     DrawScope by drawScope {
 
     override val definition: ChartDefinition<T> = definition
     override val scopes: Map<Long, ProcessingScope<T>> = scopes
     override val chartEnvironment: Map<Chart<T>, IChartEnvironment> = chartEnvironment
-    override val states: Map<Chart<T>, IStates> = states
 
     override val IChartEnvironment.rootRect: Rect
         get() = Rect(0f, 0f, chartSize.value.width.toFloat(), chartSize.value.height.toFloat())

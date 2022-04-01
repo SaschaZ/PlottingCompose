@@ -9,11 +9,10 @@ import dev.zieger.plottingcompose.indicators.candles.BollingerBands
 import dev.zieger.plottingcompose.indicators.candles.BollingerBandsParameter
 import dev.zieger.plottingcompose.indicators.candles.ICandle
 import dev.zieger.plottingcompose.processor.ProcessingScope
+import dev.zieger.plottingcompose.strategy.dto.*
 import dev.zieger.plottingcompose.strategy.dto.Direction.BUY
 import dev.zieger.plottingcompose.strategy.dto.Direction.SELL
-import dev.zieger.plottingcompose.strategy.dto.Order
 import dev.zieger.plottingcompose.strategy.dto.Pairs.XBTUSD
-import dev.zieger.plottingcompose.strategy.dto.RemoteOrder
 import dev.zieger.utils.misc.max
 import dev.zieger.utils.misc.min
 import dev.zieger.utils.misc.nullWhen
@@ -24,14 +23,24 @@ data class BbStrategyOptions(
     val strategyParams: StrategyParameter = StrategyParameter(),
     val initialCash: Long = 1_000,
     val leverage: Double = 5.0,
-    val dcaNumMax: Int = 3,
+    val dcaNumMax: Int = 4,
     val nextBullPrice: (idx: Int, lastPrice: Double) -> Double = { idx, lastPrice ->
-        val step = lastPrice * 0.05
-        lastPrice - step.pow(idx)
+        when (idx) {
+            0 -> lastPrice
+            else -> {
+                val step = lastPrice * 0.05
+                lastPrice - step * 2.0.pow(idx - 1)
+            }
+        }
     },
     val nextBearPrice: (idx: Int, lastPrice: Double) -> Double = { idx, lastPrice ->
-        val step = lastPrice * 0.05
-        lastPrice + step.pow(idx)
+        when (idx) {
+            0 -> lastPrice
+            else -> {
+                val step = lastPrice * 0.05
+                lastPrice + step * 2.0.pow(idx - 1)
+            }
+        }
     },
     val nextVolume: (idx: Int) -> Double = { idx ->
         (2.0.pow(idx))
@@ -53,54 +62,83 @@ class BbStrategy(
 
     private var skipped = 0
 
-    private val bullBuys = HashMap<Int, RemoteOrder>(param.dcaNumMax)
-    private val bullSells = HashMap<Int, RemoteOrder>(param.dcaNumMax)
-    private val bearSells = HashMap<Int, RemoteOrder>(param.dcaNumMax)
-    private val bearBuys = HashMap<Int, RemoteOrder>(param.dcaNumMax)
+    private val bullBuys = HashMap<Int, RemoteOrder<BullBuy>>(param.dcaNumMax)
+    private val bullSells = HashMap<Int, RemoteOrder<BullSell>>(param.dcaNumMax)
+    private val bearSells = HashMap<Int, RemoteOrder<BearSell>>(param.dcaNumMax)
+    private val bearBuys = HashMap<Int, RemoteOrder<BearBuy>>(param.dcaNumMax)
 
-    override suspend fun ProcessingScope<ICandle>.process() {
-        processUnreferenced(this)
+    override suspend fun ProcessingScope<ICandle>.placeOrders() {
         if (++skipped < 200) return
 
         (BollingerBands.key(param.bbOptions) dataOf BollingerBands.BB_VALUES)?.also { bb ->
-            placeOrders(bb)
+            placeOrders2(bb)
         }
     }
 
-    private fun ProcessingScope<ICandle>.placeOrders(bb: BbValues) {
+    private suspend fun ProcessingScope<ICandle>.placeOrders2(bb: BbValues) {
         placeBullOrders(bb)
         placeBearOrders(bb)
     }
 
-    private fun ProcessingScope<ICandle>.placeBullOrders(bb: BbValues) {
+    private suspend fun ProcessingScope<ICandle>.placeBullOrders(bb: BbValues) {
         val p = position?.nullWhen { it.direction != BUY }
-        var lastPrice = max(p?.enterTrades?.maxOfOrNull { it.order.counterPrice }, input.low, bb.low)
+        val lastPrice = p?.enterTrades?.maxOfOrNull { it.order.counterPrice } ?: min(input.low, bb.low)
         ((p?.enterTrades?.size ?: 0)..param.dcaNumMax step 1).forEach { slotId ->
-            lastPrice = param.nextBullPrice(slotId, lastPrice)
-            bullBuys[slotId]?.change(lastPrice) ?: run {
-                bullBuys[slotId] = order(Order(XBTUSD, input.x, lastPrice, param.nextVolume(slotId), BUY))
+            val price = param.nextBullPrice(slotId, lastPrice)
+            bullBuys[slotId]?.change(price) ?: run {
+                bullBuys[slotId] = order(BullBuy(slotId, XBTUSD, input.x, price, param.nextVolume(slotId), BUY))
+                    .onExecuted {
+                        bullBuys.remove(slotId)
+                        false
+                    }.onCancelled {
+                        bullBuys.remove(slotId)
+                        false
+                    }
             }
         }
 
         if (position?.direction == BUY)
-            bullSells[0]?.change(position.exitBaseVolumeDiff(bb.high)) ?: run {
-                bullSells[0] = order(Order(XBTUSD, input.x, bb.high - 1, position.exitBaseVolumeDiff(bb.high), SELL))
+            bullSells[0]?.change(bb.high - 1, position.exitCounterVolumeDiff(bb.high - 1)) ?: run {
+                bullSells[0] =
+                    order(BullSell(0, XBTUSD, input.x, bb.high - 1, position.exitCounterVolumeDiff(bb.high - 1), SELL))
+                        .onExecuted {
+                            bullSells.remove(0)
+                            false
+                        }.onCancelled {
+                            bullSells.remove(0)
+                            false
+                        }
             }
     }
 
-    private fun ProcessingScope<ICandle>.placeBearOrders(bb: BbValues) {
+    private suspend fun ProcessingScope<ICandle>.placeBearOrders(bb: BbValues) {
         val p = position?.nullWhen { it.direction != SELL }
-        var lastPrice = min(p?.enterTrades?.minOfOrNull { it.order.counterPrice }, input.high, bb.high)
+        val lastPrice = p?.enterTrades?.minOfOrNull { it.order.counterPrice } ?: max(input.high, bb.high)
         ((p?.enterTrades?.size ?: 0)..param.dcaNumMax step 1).forEach { slotId ->
-            lastPrice = param.nextBearPrice(slotId, lastPrice)
-            bearSells[slotId]?.change(lastPrice) ?: run {
-                bearSells[slotId] = order(Order(XBTUSD, input.x, lastPrice, param.nextVolume(slotId), SELL))
+            val price = param.nextBearPrice(slotId, lastPrice)
+            bearSells[slotId]?.change(price) ?: run {
+                bearSells[slotId] = order(BearSell(slotId, XBTUSD, input.x, price, param.nextVolume(slotId), SELL))
+                    .onExecuted {
+                        bearSells.remove(slotId)
+                        false
+                    }.onCancelled {
+                        bearSells.remove(slotId)
+                        false
+                    }
             }
         }
 
         if (position?.direction == SELL)
-            bearBuys[0]?.change(position.exitBaseVolumeDiff(bb.low)) ?: run {
-                bearBuys[0] = order(Order(XBTUSD, input.x, bb.low + 1, position.exitBaseVolumeDiff(bb.low), BUY))
+            bearBuys[0]?.change(bb.low + 1, position.exitCounterVolumeDiff(bb.low + 1)) ?: run {
+                bearBuys[0] =
+                    order(BearBuy(0, XBTUSD, input.x, bb.low + 1, position.exitCounterVolumeDiff(bb.low + 1), BUY))
+                        .onExecuted {
+                            bearBuys.remove(0)
+                            false
+                        }.onCancelled {
+                            bearBuys.remove(0)
+                            false
+                        }
             }
     }
 }

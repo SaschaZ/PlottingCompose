@@ -11,8 +11,8 @@ import androidx.compose.ui.text.style.TextAlign
 import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.drawText
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
-import dev.zieger.plottingcompose.x
-import dev.zieger.plottingcompose.y
+import dev.zieger.plottingcompose.scopes.x
+import dev.zieger.plottingcompose.scopes.y
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
 
@@ -39,15 +39,15 @@ data class Label<I : Input>(
                 pos.y - padding
             )
             else -> Offset(
-                pos.x - labelWidth * finalScale.x - padding,
+                (pos.x - labelWidth * finalScale.x - padding).toFloat(),
                 pos.y - padding
             )
         }.let {
             when {
                 pos.y > plotRect.bottom - plotRect.height * 0.5f ->
-                    it.copy(y = it.y - labelHeight * finalScale.y * 2.05f)
+                    it.copy(y = (it.y - labelHeight * finalScale.y * 2.05f).toFloat())
                 else ->
-                    it.copy(y = it.y + labelHeight * finalScale.y * 1.2f)
+                    it.copy(y = (it.y + labelHeight * finalScale.y * 1.2f).toFloat())
             }
         }
     },
@@ -56,7 +56,7 @@ data class Label<I : Input>(
         val lines = c.split('\n').map { it to TextLine.make(it, font) }
         val labelWidth = lines.maxOf { it.second.width } / finalScale.x
         val labelHeight = lines.sumOf { it.second.height.toInt() } / finalScale.y
-        Size(labelWidth + padding * 2 / finalScale.x, labelHeight + padding * 2 / finalScale.y)
+        Size((labelWidth + padding * 2 / finalScale.x).toFloat(), (labelHeight + padding * 2 / finalScale.y).toFloat())
     }
 ) : PlotStyle<I>(ySlot, contentSlot) {
 
@@ -81,7 +81,10 @@ data class Label<I : Input>(
                     backgroundColor,
                     startTop,
                     size,
-                    CornerRadius(borderRoundCorner / finalScale.x, borderRoundCorner / finalScale.y),
+                    CornerRadius(
+                        (borderRoundCorner / finalScale.x).toFloat(),
+                        (borderRoundCorner / finalScale.y).toFloat()
+                    ),
                     Fill,
                     backgroundColor.alpha
                 )
@@ -89,17 +92,20 @@ data class Label<I : Input>(
                     borderColor,
                     startTop,
                     size,
-                    CornerRadius(borderRoundCorner / finalScale.x, borderRoundCorner / finalScale.y),
-                    Stroke(borderWidth / finalScale.x),
+                    CornerRadius(
+                        (borderRoundCorner / finalScale.x).toFloat(),
+                        (borderRoundCorner / finalScale.y).toFloat()
+                    ),
+                    Stroke((borderWidth / finalScale.x).toFloat()),
                     borderColor.alpha
                 )
                 lines.forEachIndexed { idx, line ->
                     val scale = finalScale
                     val off = startTop.copy(
-                        x = startTop.x + padding / scale.x,
-                        y = startTop.y + (lines.take(idx + 1).sumOf { it.second.height.toInt() }) / scale.y
+                        x = (startTop.x + padding / scale.x).toFloat(),
+                        y = (startTop.y + (lines.take(idx + 1).sumOf { it.second.height.toInt() }) / scale.y).toFloat()
                     )
-                    scale(1 / scale.x, 1 / scale.y, off) {
+                    scale((1 / scale.x).toFloat(), (1 / scale.y).toFloat(), off) {
                         drawText(
                             line.first,
                             off,

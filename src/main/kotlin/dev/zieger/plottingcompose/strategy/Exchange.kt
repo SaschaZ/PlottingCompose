@@ -21,8 +21,8 @@ interface Exchange<I : ICandle> {
 
     fun addPositionListener(onPositionChanged: (Position) -> Unit): () -> Unit
 
-    fun order(order: Order, listener: RemoteOrderListener? = null): RemoteOrder
-    suspend fun changeOrder(order: Order): Boolean
-    suspend fun cancelOrder(order: Order): Boolean
-    fun process(scope: ProcessingScope<I>)
+    suspend fun <O : Order<O>> order(order: O, listener: RemoteOrderListener<O>? = null): RemoteOrder<O>
+    suspend fun changeOrder(order: Order<*>): Boolean
+    suspend fun cancelOrder(order: Order<*>): Boolean
+    suspend fun processCandle(scope: ProcessingScope<I>)
 }

@@ -19,8 +19,14 @@ open class Line<T : Input>(
         slot.value()?.let { line ->
             drawLine(
                 color,
-                Offset(line.start.x / widthDivisor, plotRect.bottom - line.start.y / heightDivisor.value.toFloat()),
-                Offset(line.end.x / widthDivisor, plotRect.bottom - line.end.y / heightDivisor.value.toFloat()),
+                Offset(
+                    (line.start.x / widthDivisor).toFloat(),
+                    plotRect.bottom - line.start.y / heightDivisor.value.toFloat()
+                ),
+                Offset(
+                    (line.end.x / widthDivisor.toFloat()),
+                    plotRect.bottom - line.end.y / heightDivisor.value.toFloat()
+                ),
                 width,
                 alpha = color.alpha
             )

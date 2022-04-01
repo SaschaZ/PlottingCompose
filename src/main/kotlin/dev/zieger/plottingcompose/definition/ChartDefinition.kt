@@ -60,11 +60,11 @@ class Chart<T : Input>(
     val margin: Margin = Margin({ 0.dp }, { 20.dp }),
     val verticalWeight: Float = 1f,
     val tickLength: IntSize.() -> Dp = { 15.dp },
-    val yTicks: IGlobalChartEnvironment.(yRange: ClosedRange<Double>) -> Map<Double, Set<String>> = {
-        TickHelper.ticksY(it, chartSize.value.height, 50f)
+    val yTicks: IGlobalChartEnvironment.(yRange: ClosedRange<Double>) -> Ticks = {
+        TickHelper.ticksY(it, 15)
     },
-    val xTicks: IGlobalChartEnvironment.(idxRange: ClosedRange<Int>, xRange: ClosedRange<Double>) -> Map<Double, Set<String>> = { idxRange, xRange ->
-        TickHelper.ticksX(xRange, chartSize.value.width, 100f, idxRange)
+    val xTicks: IGlobalChartEnvironment.(idxRange: ClosedRange<Int>, xRange: ClosedRange<Double>, amount: Int) -> Ticks = { idxRange, xRange, amount ->
+        TickHelper.ticksX(xRange, amount, idxRange)
     },
     val drawYLabels: Boolean = true,
     val drawXLabels: Boolean = true,

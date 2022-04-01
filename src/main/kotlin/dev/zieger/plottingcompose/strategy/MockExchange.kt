@@ -10,8 +10,7 @@ import java.util.concurrent.Executors
 import kotlin.math.absoluteValue
 
 data class MockExchangeParameter(
-    val initialCash: Double = 10_000.0,
-    val leverage: Double = 10.0
+    val initialCash: Double = 10_000.0, val leverage: Double = 10.0
 )
 
 class MockExchange(
@@ -37,8 +36,7 @@ class MockExchange(
     override val usedMargin: Double
         get() = orderMargin + positionMargin
     override val orderMargin: Double
-        get() = remoteOrders.filter { it.isPlaced && !it.isExecuted }
-            .sumOf { it.order.counterVolume }
+        get() = remoteOrders.filter { it.isPlaced && !it.isExecuted }.sumOf { it.order.counterVolume }
 
     override val positionMargin: Double
         get() = position?.counterMargin(currentInput.close, param.leverage) ?: 0.0
@@ -48,14 +46,14 @@ class MockExchange(
         private set
 
     private val positionListener = LinkedList<(Position) -> Unit>()
-    private val remoteOrders = LinkedList<RemoteOrder>()
+    private val remoteOrders = LinkedList<RemoteOrder<*>>()
 
     override fun addPositionListener(onPositionChanged: (Position) -> Unit): () -> Unit {
         positionListener += onPositionChanged
         return { positionListener -= onPositionChanged }
     }
 
-    override fun order(order: Order, listener: RemoteOrderListener?): RemoteOrder =
+    override suspend fun <O : Order<O>> order(order: O, listener: RemoteOrderListener<O>?): RemoteOrder<O> =
         RemoteOrder(scope, order, this, listener).also {
             if (it.order.counterVolume > availableBalance) {
                 it.cancelled()
@@ -68,58 +66,83 @@ class MockExchange(
             it.placed()
         }
 
-    override suspend fun changeOrder(order: Order): Boolean = remoteOrders.any { it.order == order }
-    override suspend fun cancelOrder(order: Order): Boolean = remoteOrders.removeIf { it.order == order }
+    override suspend fun changeOrder(order: Order<*>): Boolean = remoteOrders.any { it.order == order }
+    override suspend fun cancelOrder(order: Order<*>): Boolean = remoteOrders.removeIf { it.order == order }
 
     private var cnt = 0
 
-    override fun process(scope: ProcessingScope<ICandle>) = scope.run {
+    override suspend fun processCandle(scope: ProcessingScope<ICandle>): Unit = scope.run {
         currentInput = input
-        println(++cnt)
+        println("cnt=${++cnt} - remoteOrders=${remoteOrders.size}")
 
+        val toRemove = LinkedList<RemoteOrder<*>>()
         remoteOrders.sortedBy { (input.close - it.order.counterPrice).absoluteValue }.forEach { ro ->
             ro.order.run {
                 position = when (position?.direction) {
                     Direction.BUY -> when (direction) {
                         Direction.BUY -> {
-                            if (counterPrice > input.low)
-                                position!!.copy(enterTrades = position!!.enterTrades + Trade(input.x, this))
-                                    .also { println("Bull buy") }
-                            else null
+                            if (counterPrice > input.low) {
+                                val trade = Trade(input.x, this)
+                                ro.executed(trade)
+                                toRemove += ro
+                                position!!.copy(enterTrades = position!!.enterTrades + trade)
+                                    .also { println("Bull buy $trade; pos closed=${it.isClosed}") }
+                            } else null
                         }
                         Direction.SELL -> {
-                            if (counterPrice < input.high)
-                                position!!.copy(exitTrades = position!!.exitTrades + Trade(input.x, this))
-                                    .also { println("Bull sell") }
-                            else null
+                            if (counterPrice < input.high) {
+                                val trade = Trade(input.x, this)
+                                ro.executed(trade)
+                                toRemove += ro
+                                position!!.copy(exitTrades = position!!.exitTrades + trade)
+                                    .also { println("Bull sell $trade; pos closed=${it.isClosed}") }
+                            } else null
                         }
                     } ?: position
                     Direction.SELL -> when (direction) {
                         Direction.SELL -> {
-                            if (counterPrice < input.high)
-                                position!!.copy(enterTrades = position!!.enterTrades + Trade(input.x, this))
-                                    .also { println("Bear sell") }
-                            else null
+                            if (counterPrice < input.high) {
+                                val trade = Trade(input.x, this)
+                                ro.executed(trade)
+                                toRemove += ro
+                                position!!.copy(enterTrades = position!!.enterTrades + trade)
+                                    .also { println("Bear sell $trade; pos closed=${it.isClosed}") }
+                            } else null
                         }
                         Direction.BUY -> {
-                            if (counterPrice > input.low)
-                                position!!.copy(exitTrades = position!!.exitTrades + Trade(input.x, this))
-                                    .also { println("Bear buy") }
-                            else null
+                            if (counterPrice > input.low) {
+                                val trade = Trade(input.x, this)
+                                ro.executed(trade)
+                                toRemove += ro
+                                position!!.copy(exitTrades = position!!.exitTrades + trade)
+                                    .also { println("Bear buy $trade; pos closed=${it.isClosed}") }
+                            } else null
                         }
                     } ?: position
                     else -> when (direction) {
                         Direction.BUY -> {
-                            if (counterPrice < input.high)
-                                Position(input.x, closedPositions.size, listOf(Trade(input.x, this)))
-                                    .also { println("Bull buy") }
-                            else null
+                            if (counterPrice < input.high) {
+                                val trade = Trade(input.x, this)
+                                ro.executed(trade)
+                                toRemove += ro
+                                Position(
+                                    input.x,
+                                    closedPositions.size,
+                                    listOf(trade)
+                                ).also { println("Bull buy $trade; pos closed=${it.isClosed}") }
+                            } else null
                         }
                         Direction.SELL -> {
-                            if (counterPrice > input.low)
-                                Position(input.x, closedPositions.size, listOf(Trade(input.x, this)))
-                                    .also { println("Bear sell") }
-                            else null
+                            if (counterPrice > input.low) {
+                                val trade = Trade(input.x, this)
+                                ro.executed(trade)
+                                toRemove += ro
+                                Position(
+                                    input.x,
+                                    closedPositions.size,
+                                    listOf(trade)
+                                ).also { println("Bear sell $trade; pos closed=${it.isClosed}") }
+                            } else null
                         }
                     }
                 }
@@ -132,5 +155,7 @@ class MockExchange(
                 }
             }
         }
+
+        remoteOrders.removeAll(toRemove)
     }
 }
