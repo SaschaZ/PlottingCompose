@@ -5,13 +5,19 @@ import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.strategy.dto.Order
 import dev.zieger.plottingcompose.strategy.dto.Position
 import dev.zieger.plottingcompose.strategy.dto.RemoteOrder
-import dev.zieger.plottingcompose.strategy.dto.RemoteOrderListener
 
 interface Exchange<I : ICandle> {
+
+    val baseTickSize: Double
+        get() = 0.00000001
+
+    fun counterTickSize(currentPrice: Double): Double =
+        baseTickSize * currentPrice
 
     val cash: Double
     val walletBalance: Double
     val closedPositions: List<Position>
+    val closedPosition: Position?
     val position: Position?
     val availableBalance: Double
     val equity: Double
@@ -19,9 +25,7 @@ interface Exchange<I : ICandle> {
     val orderMargin: Double
     val positionMargin: Double
 
-    fun addPositionListener(onPositionChanged: (Position) -> Unit): () -> Unit
-
-    suspend fun <O : Order<O>> order(order: O, listener: RemoteOrderListener<O>? = null): RemoteOrder<O>
+    suspend fun <O : Order<O>> order(order: O): RemoteOrder<O>
     suspend fun changeOrder(order: Order<*>): Boolean
     suspend fun cancelOrder(order: Order<*>): Boolean
     suspend fun processCandle(scope: ProcessingScope<I>)

@@ -76,4 +76,7 @@ class Chart<T : Input>(
 ) {
     lateinit var visibleArea: VisibleArea
     val plots: List<PlotStyle<T>> = plot.toList()
+
+    internal fun slot(key: Key<*, *>, port: Port<*>): Slot<*, *>? =
+        plots.firstNotNullOfOrNull { p -> p.slots.firstOrNull { it.key == key && it.port == port } }
 }

@@ -5,10 +5,11 @@ import androidx.compose.ui.graphics.Color
 import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
 
-open class Line<T : Input>(
-    private val slot: Slot<T, Output.Line>,
-    private val color: Color = Color.Cyan,
-    private val width: Float = 1f
+open class Line<T : Input, D : Output>(
+    private val slot: Slot<T, D>,
+    private val color: Color = Color.White,
+    private val width: Float = 3f,
+    private val lineForData: (D) -> Output.Line?
 ) : PlotStyle<T>(slot) {
     override fun IPlotDrawScope<T>.drawSingle(
         idx: Long,
@@ -16,20 +17,22 @@ open class Line<T : Input>(
         data: Map<Key<T, *>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
-        slot.value()?.let { line ->
-            drawLine(
-                color,
-                Offset(
-                    (line.start.x / widthDivisor).toFloat(),
-                    plotRect.bottom - line.start.y / heightDivisor.value.toFloat()
-                ),
-                Offset(
-                    (line.end.x / widthDivisor.toFloat()),
-                    plotRect.bottom - line.end.y / heightDivisor.value.toFloat()
-                ),
-                width,
-                alpha = color.alpha
-            )
+        slot.value(data)?.let {
+            lineForData(it)?.also { line ->
+                drawLine(
+                    color,
+                    Offset(
+                        (line.start.x / widthDivisor).toFloat(),
+                        plotRect.bottom + line.start.y / heightDivisor.value.toFloat()
+                    ).toScene(),
+                    Offset(
+                        (line.end.x / widthDivisor.toFloat()),
+                        plotRect.bottom - line.end.y / heightDivisor.value.toFloat()
+                    ).toScene(),
+                    width,
+                    alpha = color.alpha
+                )
+            }
         }
     }
 }

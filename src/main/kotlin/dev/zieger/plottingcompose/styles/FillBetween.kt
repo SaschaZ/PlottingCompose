@@ -14,7 +14,7 @@ class FillBetween<I : Input>(
     private val color: Color = Color.Cyan.copy(alpha = 0.66f)
 ) : PlotStyle<I>(*listOfNotNull(between?.first, between?.second).toTypedArray()) {
 
-    override fun IPlotDrawScope<I>.drawSeries(data: Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>) {
+    override fun IPlotDrawScope<I>.drawSeries(data: List<Pair<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>>) {
         val offsets =
             data.map { (x, d) ->
                 Offset(x.idx.toFloat(), between?.first?.value(d)?.scalar?.toFloat() ?: 0f).toScene() to

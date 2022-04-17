@@ -5,11 +5,12 @@ package dev.zieger.plottingcompose.bitinex
 import dev.zieger.plottingcompose.indicators.candles.ICandle
 import dev.zieger.utils.time.*
 import io.ktor.client.*
+import io.ktor.client.call.*
 import io.ktor.client.engine.okhttp.*
-import io.ktor.client.features.json.*
-import io.ktor.client.features.json.serializer.*
+import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.KSerializer
@@ -19,6 +20,7 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
 
 class RestEndpoint {
 
@@ -34,8 +36,12 @@ class RestEndpoint {
                 retryOnConnectionFailure(true)
             }
         }
-        install(JsonFeature) {
-            serializer = KotlinxSerializer()
+        install(ContentNegotiation) {
+            json(Json {
+                prettyPrint = true
+                isLenient = true
+                serializersModule = timeSerializerModule
+            })
         }
     }
 
@@ -46,7 +52,7 @@ class RestEndpoint {
         sort: BitfinexSort = BitfinexSort.DESC,
         limit: Int = 10_000
     ): Flow<BitfinexCandle> = flow {
-        client.get<List<BitfinexCandle>> {
+        client.get {
             url {
                 protocol = URLProtocol.HTTPS
                 host = BASE_HOST
@@ -59,7 +65,7 @@ class RestEndpoint {
                 parameter("end", max(start, end).millisLong)
                 parameter("sort", sort)
             }
-        }.forEach { emit(it) }
+        }.body<List<BitfinexCandle>>().forEach { emit(it) }
     }
 }
 

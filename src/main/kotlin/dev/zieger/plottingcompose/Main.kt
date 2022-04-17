@@ -6,23 +6,24 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.window.*
-import dev.zieger.bybitapi.ByBitExchange
 import dev.zieger.bybitapi.dto.enumerations.Interval
 import dev.zieger.bybitapi.dto.enumerations.Symbol
 import dev.zieger.bybitapi.utils.plus
+import dev.zieger.candleproxy.client.CandleProxyClient
 import dev.zieger.plottingcompose.bitinex.*
 import dev.zieger.plottingcompose.bitinex.BitfinexInterval.H1
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.USD
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.XMR
 import dev.zieger.plottingcompose.definition.*
-import dev.zieger.plottingcompose.definition.TickHelper.doubleFormat
 import dev.zieger.plottingcompose.definition.TickHelper.ticksIdx
+import dev.zieger.plottingcompose.definition.TickHelper.timeFormat
 import dev.zieger.plottingcompose.indicators.candles.*
 import dev.zieger.plottingcompose.strategy.BbStrategy
 import dev.zieger.plottingcompose.strategy.BbStrategyOptions
@@ -36,15 +37,19 @@ import dev.zieger.utils.time.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.*
 
 fun buildByBitFlow(
     scope: CoroutineScope,
     symbol: Symbol = Symbol.BTCUSD,
     interval: Interval = Interval.H1,
-    barsBack: Int = 10_000
-) =
-    ByBitExchange(scope).candles(symbol, interval, barsBack)
-        .map { Ohcl.Companion.Ohcl(it.open, it.high, it.close, it.low, it.volume.toDouble(), it.openTime) }
+    barsBack: Int = 365 * 24
+) = CandleProxyClient("http://localhost", 8080).candles(
+    symbol,
+    interval,
+    TimeStamp() - barsBack * interval.duration..TimeStamp()
+)
+    .map { Ohcl.Companion.Ohcl(it.open, it.high, it.close, it.low, it.volume.toDouble(), it.time.millisLong) }
 
 fun buildBitfinexFlow(
     scope: CoroutineScope,
@@ -55,6 +60,7 @@ fun buildBitfinexFlow(
     .plus(SocketEndpoint(scope).candles(pair, interval))
 
 fun main() = application {
+    TimeStamp.DEFAULT_TIME_ZONE = TimeZone.getTimeZone("UTC")
     MaterialTheme(MaterialTheme.colors.copy(background = Color.Black, onBackground = Color.White)) {
         val scope = rememberCoroutineScope()
 
@@ -69,16 +75,30 @@ fun main() = application {
             ChartDefinition(
                 Chart(
                     LineSeries(
+                        bbStrategyKey with Strategy.STRATEGY_RESULTS select { it.cash },
+                        Color.Yellow, lineWidth = 1f
+                    ),
+                    verticalWeight = 0.15f,
+                    drawXLabels = false,
+                    yTicks = {
+                        TickHelper.ticksY(it, 5)
+                    },
+                    xTicks = { idxRange, valueRange, amount ->
+                        idxRange.ticksIdx(amount, 50f).timeFormat(valueRange, idxRange)
+                    }
+                ),
+                Chart(
+                    LineSeries(
                         bbKey with BollingerBands.HIGH,
-                        Color.Yellow.copy(alpha = 0.5f), width = 1f
+                        Color.Yellow.copy(alpha = 0.5f), lineWidth = 1f
                     ),
                     LineSeries(
                         bbKey with BollingerBands.MID,
-                        Color.Yellow.copy(alpha = 0.5f), width = 1f
+                        Color.Yellow.copy(alpha = 0.5f), lineWidth = 1f
                     ),
                     LineSeries(
                         bbKey with BollingerBands.LOW,
-                        Color(0xFF7700).copy(alpha = 0.5f), width = 1f
+                        Color(0xFF7700).copy(alpha = 0.5f), lineWidth = 1f
                     ),
                     FillBetween(
                         (bbKey with BollingerBands.HIGH) to
@@ -96,26 +116,51 @@ fun main() = application {
                             negativeColor = Color(0xFFFF0000)
                         )
                     ),
-                    *(0..bbStrategyKey.param.dcaNumMax).map { idx ->
-                        LineSeries(
-                            bbStrategyKey with Strategy.BULL_BUY_ORDERS(idx),
-                            lineColor = Color.Cyan, width = 0.5f
-                        )
+                    *(0 until bbStrategyKey.param.dcaNumMax).map { idx ->
+                        LineSeriesValueSelect(
+                            bbStrategyKey with Strategy.STRATEGY_RESULTS,
+                            defaultColor = Color.Red, lineWidth = 0.5f
+                        ) { it.orders.bullSells[idx]?.counterPrice?.toFloat() }
                     }.toTypedArray(),
-                    *(0..bbStrategyKey.param.dcaNumMax).map { idx ->
-                        LineSeries(
-                            bbStrategyKey with Strategy.BEAR_SELL_ORDERS(idx),
-                            lineColor = Color.Magenta, width = 0.5f
-                        )
+                    *(0 until bbStrategyKey.param.dcaNumMax).map { idx ->
+                        LineSeriesValueSelect(
+                            bbStrategyKey with Strategy.STRATEGY_RESULTS,
+                            defaultColor = Color(1f, 0f, 1f - idx / bbStrategyKey.param.dcaNumMax.toFloat(), 1f),
+                            lineWidth = 0.5f
+                        ) { it.orders.bullBuys[idx]?.counterPrice?.toFloat() }
                     }.toTypedArray(),
-                    LineSeries(
-                        bbStrategyKey with Strategy.POSITION_AVERAGE_PRICE, Color.Yellow,
-                        colorSlot = bbStrategyKey with Strategy.POSITION_DIFF, width = 1f
-                    ),
-                    verticalWeight = 0.8f,
+                    *(0 until bbStrategyKey.param.dcaNumMax).map { idx ->
+                        LineSeriesValueSelect(
+                            bbStrategyKey with Strategy.STRATEGY_RESULTS,
+                            defaultColor = Color.Blue, lineWidth = 0.5f
+                        ) { it.orders.bearBuys[idx]?.counterPrice?.toFloat() }
+                    }.toTypedArray(),
+                    *(0 until bbStrategyKey.param.dcaNumMax).map { idx ->
+                        LineSeriesValueSelect(
+                            bbStrategyKey with Strategy.STRATEGY_RESULTS,
+                            defaultColor = Color(0f, 1f - idx / bbStrategyKey.param.dcaNumMax.toFloat(), 1f, 1f),
+                            lineWidth = 0.5f
+                        ) { it.orders.bearSells[idx]?.counterPrice?.toFloat() }
+                    }.toTypedArray(),
+                    LineSeriesValueSelect(
+                        bbStrategyKey with Strategy.STRATEGY_RESULTS,
+                        Color.Transparent,
+                        lineWidth = 2f,
+                        colorSelector = { result ->
+                            when (result.closedPosition?.hasProfit) {
+                                true -> Color.Green
+                                false -> Color.Red
+                                else -> null
+                            }
+                        }
+                    ) { (it.position ?: it.closedPosition)?.averageEnterCounterPrice?.toFloat() },
+                    Label(bbStrategyKey with Strategy.STRATEGY_RESULTS, mouseIsPositionSource = true) {
+                        it.input.close.toFloat() to "$it"
+                    }.whenFocused(),
+                    verticalWeight = 0.7f,
                     drawXLabels = false,
-                    xTicks = { idxRange, xRange, amount ->
-                        idxRange.ticksIdx(amount, 50f).doubleFormat()
+                    xTicks = { idxRange, valueRange, amount ->
+                        idxRange.ticksIdx(amount, 50f).timeFormat(valueRange, idxRange)
                     }
                 ),
                 Chart(
@@ -131,12 +176,12 @@ fun main() = application {
                             negativeColor = Color(0xFFFF0000)
                         )
                     ),
-                    verticalWeight = 0.2f,
+                    verticalWeight = 0.15f,
                     yTicks = {
                         TickHelper.ticksY(it, 4)
                     },
                     xTicks = { idxRange, xRange, amount ->
-                        idxRange.ticksIdx(amount, 50f).doubleFormat()
+                        idxRange.ticksIdx(amount, 50f).timeFormat(xRange, idxRange)
                     }
                 ),
                 visibleArea = VisibleArea(0.8f, NumData.Fixed(300))
@@ -162,27 +207,27 @@ fun main() = application {
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-//                    TopSelection(chartDefinition, CandleProvider.ByBit, 0, Modifier.fillMaxWidth(0.5f)) {
-//                        byBitFlow.value = it
-//                    }
-                    TopSelection(chartDefinition, CandleProvider.Bitfinex, 0) {
-                        finexFlow.value = it
+                    TopSelection(chartDefinition, CandleProvider.ByBit, 0, Modifier.fillMaxWidth(1f)) {
+                        byBitFlow.value = it
                     }
+//                    TopSelection(chartDefinition, CandleProvider.Bitfinex, 0) {
+//                        finexFlow.value = it
+//                    }
                 }
                 Row(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-//                    MultiChart(
-//                        chartDefinition,
-//                        byBitFlow.value,
-//                        modifier = Modifier.fillMaxWidth(0.5f)
-//                    )
                     MultiChart(
                         chartDefinition,
-                        finexFlow.value,
-                        modifier = Modifier.fillMaxWidth()
+                        byBitFlow,
+                        modifier = Modifier.fillMaxWidth(1f)
                     )
+//                    MultiChart(
+//                        chartDefinition,
+//                        finexFlow,
+//                        modifier = Modifier.fillMaxWidth()
+//                    )
                 }
             }
         }
@@ -252,7 +297,7 @@ enum class CandleProvider(
     val providedPairs: List<Pair>,
     val build: (scope: CoroutineScope, base: String, counter: String, interval: ITimeSpan) -> Flow<ICandle>
 ) {
-    ByBit(listOf(Pairs.XBTUSD), { scope, base, counter, interval ->
+    ByBit(listOf(Pairs.BTCUSD), { scope, base, counter, interval ->
         buildByBitFlow(
             scope,
             Symbol.valueOf("${base.uppercase()}${counter.uppercase()}"),
@@ -268,3 +313,5 @@ enum class CandleProvider(
         )
     })
 }
+
+fun Offset(x: Number, y: Number) = Offset(x.toFloat(), y.toFloat())

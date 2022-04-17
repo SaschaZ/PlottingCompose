@@ -14,8 +14,8 @@ open class PlotStyle<I : Input>(vararg slot: Slot<I, *>?) {
     val slots: List<Slot<I, *>> = slot.toList().filterNotNull()
     internal lateinit var data: Map<Key<I, *>, List<PortValue<*>>>
 
-    open fun IPlotDrawScope<I>.drawSeries(data: Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>) {
-        data.entries.forEach { (input, data) ->
+    open fun IPlotDrawScope<I>.drawSeries(data: List<Pair<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>>) {
+        data.forEach { (input, data) ->
             this@PlotStyle.data = data
             drawSingle(input.idx, input.input, data, focusedItemIdx.value?.itemIdx == input.idx)
         }

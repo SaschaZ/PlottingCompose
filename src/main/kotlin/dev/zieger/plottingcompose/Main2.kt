@@ -1,13 +1,13 @@
 package dev.zieger.plottingcompose
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.singleWindowApplication
 import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.processor.processorOf
-import dev.zieger.plottingcompose.styles.Dot
 import dev.zieger.plottingcompose.styles.Fill
 import dev.zieger.plottingcompose.styles.Label
 import dev.zieger.plottingcompose.styles.whenFocused
@@ -18,19 +18,23 @@ object Main2 {
 
     @JvmStatic
     fun main(args: Array<String>) = singleWindowApplication {
-        val data = remember { (-2000..3000 step 1).map { InputData(it, it.toDouble().pow(3)) }.asFlow() }
+        val data =
+            remember { mutableStateOf((-2000..3000 step 1).map { InputData(it, it.toDouble().pow(3)) }.asFlow()) }
         val definition = remember {
-            val processor = processorOf<InputData>(label = {
-                Output.Label(it.x, it.y, "${it.x}")
-            }) { it.y }
+            val processor = processorOf<InputData, Output.Scalar> { Output.Scalar(it.x, it.y) }
             ChartDefinition(
                 Chart(
                     Fill(processor.valueSlot(), Color.Cyan, true),
-                    Label(processor.valueSlot(), processor.labelSlot()).whenFocused(),
-                    Dot(processor.valueSlot(), Color.Red, 20f).whenFocused(),
-                    margin = Margin(0f, 0f)
+                    Label(
+                        processor.valueSlot(),
+                        mouseIsPositionSource = false
+                    ) { it.scalar.toFloat() to "${it.scalar.toFloat()}" }.whenFocused(),
+                    margin = Margin(0f, 0f),
+//                    drawXLabels = false,
+//                    drawYLabels = false
                 ),
-                visibleArea = VisibleArea(1f, NumData.All)
+//                margin = Margin(0f, 0f),
+                visibleArea = VisibleArea(1f, NumData.Fixed(1000))
             )
         }
         MultiChart(definition, data, Modifier.fillMaxSize())

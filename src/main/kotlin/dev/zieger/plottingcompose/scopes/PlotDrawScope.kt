@@ -57,7 +57,7 @@ fun <T : Input> PlotDrawScope(
     override val plotBorderRect: Rect = rect.run {
         Rect(
             left, top, right - (if (chart.drawYLabels) yLabelWidth.value.toFloat() else 0f) -
-                    chart.tickLength(chartSize.value).value / 2f,
+                    (if (chart.drawYLabels) chart.tickLength(chartSize.value).value / 2f else 0f),
             bottom - (if (chart.drawXLabels) xLabelHeight.value.toFloat() else 0f) -
                     (if (chart.drawXLabels) chart.tickLength(chartSize.value).value / 2f else 0f)
         )
@@ -92,6 +92,7 @@ fun <T : Input> PlotDrawScope(
 
         applyScaleRange(data.size, plotRect)
         applyScaleOffset(chart.visibleArea, data.size, plotRect.width)
+        applyTranslationRange(data.size, plotRect)
         applyTranslationOffsetX(chart.visibleArea, rawXRange, plotRect, data.size, widthDivisor.toFloat())
 
         visibleXItemIndices =
@@ -153,7 +154,7 @@ fun <T : Input> PlotDrawScope(
             ?.run { get(size / 2) }?.sumOf { it.size(fontSize).height.toDouble() } ?: 0.0
     }
 
-    override val yValueRange: ClosedRange<Double>? = chartData.yValueRange()?.also {
+    override val yValueRange: ClosedRange<Double>? = chartData.yValueRange(chart)?.also {
         val marginRel = chart.margin.top(chartSize.value).value / chartSize.value.height +
                 chart.margin.bottom(chartSize.value).value / chartSize.value.height
         heightDivisor.value = (it.range() * (1 + marginRel)) / plotRect.height
@@ -210,21 +211,23 @@ fun <T : Input> PlotDrawScope(
     override fun Offset.toScene(): Offset =
         Offset((plotRect.left + x / widthDivisor).toFloat(), plotRect.bottom - y / heightDivisor.value.toFloat())
 
-    private fun <I : Input> Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>.yValueRange(): ClosedRange<Double>? {
+    private fun <I : Input> Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>.yValueRange(chart: Chart<T>): ClosedRange<Double>? {
         if (isEmpty() || flatMap { it.value.values }.isEmpty()) return 0.0..0.0
 
         val yMin = minOfOrNull {
             it.value.minOfOrNull { i2 ->
-                i2.value.filter { (port, _) -> port.includeIntoScaling }.minOfOrNull { (_, value) ->
-                    value.yRange.start
-                } ?: Double.MAX_VALUE
+                i2.value.filter { (port, _) -> chart.slot(i2.key, port)?.scale != null || port.includeIntoScaling }
+                    .minOfOrNull { (port, value) ->
+                        chart.slot(i2.key, port)?.scale?.invoke(value) ?: value.yRange.start
+                    } ?: Double.MAX_VALUE
             } ?: Double.MAX_VALUE
         }
         val yMax = maxOfOrNull {
             it.value.maxOfOrNull { i2 ->
-                i2.value.filter { (port, _) -> port.includeIntoScaling }.maxOfOrNull { (_, value) ->
-                    value.yRange.endInclusive
-                } ?: Double.MIN_VALUE
+                i2.value.filter { (port, _) -> chart.slot(i2.key, port)?.scale != null || port.includeIntoScaling }
+                    .maxOfOrNull { (port, value) ->
+                        chart.slot(i2.key, port)?.scale?.invoke(value) ?: value.yRange.endInclusive
+                    } ?: Double.MIN_VALUE
             } ?: Double.MIN_VALUE
         }
         return whenNotNull(yMin, yMax) { min, max -> min..max }

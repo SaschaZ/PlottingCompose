@@ -11,7 +11,7 @@ open class DoubleAnimator(
     initial: Double,
     private val scope: CoroutineScope,
     protected val defaultDuration: ITimeSpan = 300.millis,
-    private val interpolator: Interpolator = Interpolator.Linear(),
+    private val interpolator: Interpolator = { linear(t = it) },
     private val block: AnimationScope.(Double) -> Unit
 ) {
 
@@ -31,8 +31,8 @@ open class DoubleAnimator(
             do {
                 delay(33)
                 val runtime = TimeStamp() - startedAt
-                val relT = (runtime / duration).coerceIn(0.0..1.0)
-                currentValue = startValue + (value - startValue) * interpolator.interpolate(relT)
+                val relT = (runtime.divDouble(duration)).coerceIn(0.0..1.0)
+                currentValue = startValue + (value - startValue) * interpolator(relT)
                 block(AnimationScope(relT, duration, runtime), currentValue)
             } while (runtime < duration && isActive)
         }
@@ -45,7 +45,7 @@ fun mutableDoubleStateAnimated(
     initial: Double,
     scope: CoroutineScope,
     defaultDuration: ITimeSpan = 600.millis,
-    interpolator: Interpolator = Interpolator.Linear()
+    interpolator: Interpolator = { linear(t = it) }
 ): MutableState<Double> = object : MutableState<Double> {
 
     private val internal = mutableStateOf(initial)

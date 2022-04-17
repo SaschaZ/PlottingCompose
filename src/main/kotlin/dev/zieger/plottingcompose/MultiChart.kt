@@ -45,7 +45,7 @@ data class InputContainer<I : Input>(val input: I, val idx: Long)
 @Composable
 fun <T : Input> MultiChart(
     definition: ChartDefinition<T>,
-    input: Flow<T>,
+    input: State<Flow<T>>,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -53,7 +53,14 @@ fun <T : Input> MultiChart(
     var collectJob by remember { mutableStateOf<Job?>(null) }
     var collectFlow by remember { mutableStateOf<Flow<T>?>(null) }
 
+    val globalChartEnvironment = remember { GlobalChartEnvironment() }
+    val chartEnvironment = remember { definition.charts.associateWith { ChartEnvironment(globalChartEnvironment) } }
+
     fun Flow<T>.collect(): Job = scope.launch {
+        chartEnvironment.values.forEach { it.reset() }
+        scopes.clear()
+        collectFlow = this@collect
+
         var lastX: Double? = null
         var lastIdx: Long = 0L
         Processor(definition.keys()).process(mapNotNull {
@@ -76,15 +83,9 @@ fun <T : Input> MultiChart(
         }
     }
 
-    val globalChartEnvironment = remember { GlobalChartEnvironment() }
-    val chartEnvironment = remember { definition.charts.associateWith { ChartEnvironment(globalChartEnvironment) } }
-
-    if (input != collectFlow) {
+    if (input.value != collectFlow) {
         collectJob?.cancel()
-        chartEnvironment.values.forEach { it.reset() }
-        scopes.clear()
-        collectFlow = input
-        collectJob = input.collect()
+        collectJob = input.value.collect()
     }
 
     Canvas(
@@ -149,7 +150,9 @@ private fun <T : Input> IPlotDrawScope<T>.drawPlot() {
         translate(finalTranslation) {
             chart.plots.forEach { style ->
                 style.run {
-                    drawSeries(chartData)
+                    drawSeries(chartData
+                        .map { (k, v) -> k to v }
+                        .sortedBy { (k, _) -> k.input.x.toDouble() })
                 }
             }
         }
@@ -221,7 +224,7 @@ private fun <T : Input> IPlotDrawScope<T>.drawXLabels() {
 private fun <T : Input> IPlotDrawScope<T>.drawHoverXLabel() {
     clipRect(xLabelRect) {
         translate(finalTranslation.copy(y = 0f)) {
-            focusedItemIdx.value?.let { (idx, value) ->
+            focusedItemIdx.value?.let { (idx, _) ->
                 val y = xLabelRect.top + 23
                 val x = (xLabelRect.left + idx / widthDivisor).toFloat()
                 val time = chartData.keys.first { it.idx == idx }.input.x.toString()/*.toTime()
@@ -299,8 +302,11 @@ private fun <T : Input> IPlotDrawScope<T>.drawHoverYLabel() {
                 focusedItemIdx.value?.let { (idx, _) ->
                     val x = yLabelRect.left + yLabelWidth.value.toFloat() / 2
                     val yValue = chartData.entries.first { (key, _) -> key.idx == idx }
-                        .value.flatMap { it.value }
-                        .filter { it.port.includeIntoScaling }
+                        .value.map { (key, portValues) ->
+                            key to portValues
+                                .filter { chart.slot(key, it.port)?.scale != null || it.port.includeIntoScaling }
+                        }
+                        .flatMap { it.second }
                         .run { sumOf { it.value.yRange.run { start + range() / 2 } }.toFloat() / size }
 
                     val y = ((yLabelRect.bottom - yValue / heightDivisor.value) - 13f).toFloat()

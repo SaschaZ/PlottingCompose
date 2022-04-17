@@ -1,11 +1,12 @@
 package dev.zieger.plottingcompose.bitinex
 
+import dev.zieger.utils.time.timeSerializerModule
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
-import io.ktor.client.features.json.*
-import io.ktor.client.features.json.serializer.*
-import io.ktor.client.features.websocket.*
-import io.ktor.http.cio.websocket.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.websocket.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.websocket.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -45,8 +46,10 @@ class SocketEndpoint(
                 retryOnConnectionFailure(true)
             }
         }
-        install(JsonFeature) {
-            serializer = KotlinxSerializer(json)
+        install(ContentNegotiation) {
+            json(Json {
+                serializersModule = timeSerializerModule
+            })
         }
         install(WebSockets) {
             pingInterval = 30_000L

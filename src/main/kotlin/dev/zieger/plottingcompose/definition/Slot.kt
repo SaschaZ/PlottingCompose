@@ -6,7 +6,13 @@ import dev.zieger.plottingcompose.processor.ProcessingUnit
 import kotlin.reflect.KClass
 
 
-data class Slot<I : Input, out O : Output>(val key: Key<I, *>, val port: Port<@UnsafeVariance O>)
+data class Slot<I : Input, out O : Output>(
+    val key: Key<I, *>,
+    val port: Port<@UnsafeVariance O>,
+    val scale: ((@UnsafeVariance O) -> Double?)? = null
+)
+
+infix fun <I : Input, O : Output> Slot<I, O>.select(scale: ((@UnsafeVariance O) -> Double?)?) = copy(scale = scale)
 
 data class Key<I : Input, P : Any>(val name: String, val param: P, var create: (P) -> ProcessingUnit<I>) {
     operator fun invoke(): ProcessingUnit<I> = create(param)

@@ -1,9 +1,12 @@
+@file:Suppress("FunctionName", "unused")
+
 package dev.zieger.plottingcompose.processor
 
 import dev.zieger.plottingcompose.InputContainer
 import dev.zieger.plottingcompose.definition.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlin.reflect.KClass
 
 class Processor<I : Input>(private val keys: List<Key<I, *>>) {
 
@@ -47,35 +50,32 @@ class Processor<I : Input>(private val keys: List<Key<I, *>>) {
 //    }
 //}
 
-fun <I : Input> processorOf(
+inline fun <I : Input, reified O : Output> processorOf(
     idx: Int = 0,
-    label: ((I) -> Output.Label)? = null,
-    selector: (I) -> Number,
-) = SingleDataPlot(idx, label, selector)
+    noinline selector: (I) -> O,
+) = SingleDataPlot(idx, O::class, selector)
 
-open class SingleDataPlot<I : Input>(
+open class SingleDataPlot<I : Input, O : Output>(
     val idx: Int = 0,
-    label: ((I) -> Output.Label)? = null,
-    private val selector: (I) -> Number,
-) : ProcessingUnit<I>(key(idx, label, selector), listOf(SingleDataValue(idx))) {
+    private val outputKlass: KClass<O>,
+    private val selector: (I) -> O,
+) : ProcessingUnit<I>(key(idx, outputKlass, selector), listOf(SingleDataValue<O>(idx, outputKlass))) {
 
     companion object {
-        fun <I : Input> key(
+        fun <I : Input, O : Output> key(
             idx: Int,
-            label: ((I) -> Output.Label)? = null,
-            selector: (I) -> Number
+            klass: KClass<O>,
+            selector: (I) -> O
         ) = Key<I, Any>("SingleDataPlot$idx", Unit) {
-            SingleDataPlot(idx, label, selector)
+            SingleDataPlot(idx, klass, selector)
         }
 
-        fun SingleDataValue(idx: Int) = Port<Output.Scalar>("SingleDataValue$idx")
-        fun SingleDataLabel(idx: Int) = Port<Output.Label>("SingleDataLabel$idx")
+        fun <O : Output> SingleDataValue(idx: Int, klass: KClass<O>) = Port(klass, "SingleDataValue$idx")
     }
 
-    fun valueSlot() = key with SingleDataValue(idx)
-    fun labelSlot() = key with SingleDataLabel(idx)
+    fun valueSlot() = key with SingleDataValue(idx, outputKlass)
 
     override suspend fun ProcessingScope<I>.process() {
-        set(SingleDataValue(idx), Output.Scalar(input.x, selector(input)))
+        set(SingleDataValue(idx, outputKlass), selector(input))
     }
 }

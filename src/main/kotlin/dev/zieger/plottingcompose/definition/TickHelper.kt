@@ -33,7 +33,7 @@ object TickHelper {
         if (valueRange.range() == 0.0) return Ticks()
 
         var divider = 1.days
-        while (valueRange.range().millis.div(divider).toLong() < 4) {
+        while (valueRange.range().millis.divDouble(divider).toLong() < 4) {
             divider = when (divider) {
                 1.days -> 12.hours
                 12.hours -> 6.hours

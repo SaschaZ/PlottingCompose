@@ -10,12 +10,8 @@ import java.util.*
 class RemoteOrder<O : Order<O>>(
     private val scope: CoroutineScope,
     order: O,
-    internal val exchange: Exchange<*>,
-    val listener: MutableList<RemoteOrderListener<O>>
+    internal val exchange: Exchange<*>
 ) {
-
-    constructor(scope: CoroutineScope, order: O, exchange: Exchange<*>, listener: RemoteOrderListener<O>?) :
-            this(scope, order, exchange, listener?.let { mutableListOf(listener) } ?: mutableListOf())
 
     var order: O = order
         private set
@@ -35,7 +31,6 @@ class RemoteOrder<O : Order<O>>(
         isPlaced = true
         onPlacedListener.removeWhen { it(this) }
         onPlacedListener.clear()
-        listener.forEach { it.onOrderPlaced(this) }
     }
 
     suspend fun onPlaced(onPlaced: suspend (RemoteOrder<O>) -> Boolean): RemoteOrder<O> {
@@ -52,7 +47,6 @@ class RemoteOrder<O : Order<O>>(
         executedTrade = trade
         onExecutedListener.removeWhen { it(trade) }
         onExecutedListener.clear()
-        listener.forEach { it.onOrderExecuted(trade) }
     }
 
     suspend fun onExecuted(onExecuted: suspend (Trade) -> Boolean): RemoteOrder<O> {
@@ -69,7 +63,6 @@ class RemoteOrder<O : Order<O>>(
         isCancelled = true
         onCancelledListener.removeWhen { it(this) }
         onCancelledListener.clear()
-        listener.forEach { it.onOrderCancelled(order) }
     }
 
     suspend fun onCancelled(onCancelled: suspend (RemoteOrder<O>) -> Boolean): RemoteOrder<O> {
@@ -85,16 +78,15 @@ class RemoteOrder<O : Order<O>>(
         if (counterPrice != order.counterPrice || counterVolume != order.counterVolume) {
             order = order.change(counterPrice, counterVolume)
             scope.launch {
-                exchange.changeOrder(order)
-                onChangedListener.removeWhen { it(this@RemoteOrder) }
-                listener.forEach { it.onOrderChanged(this@RemoteOrder) }
+                if (exchange.changeOrder(order)) {
+                    onChangedListener.removeWhen { it(this@RemoteOrder) }
+                }
             }
         }
     }
 
     fun onChanged(onChanged: suspend (RemoteOrder<O>) -> Boolean): RemoteOrder<O> {
         onChangedListener += onChanged
-
         return this
     }
 
@@ -102,7 +94,6 @@ class RemoteOrder<O : Order<O>>(
         scope.launch {
             exchange.cancelOrder(order)
             cancelled()
-            listener.clear()
         }
     }
 }

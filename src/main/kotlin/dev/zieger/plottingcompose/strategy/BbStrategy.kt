@@ -9,51 +9,41 @@ import dev.zieger.plottingcompose.indicators.candles.BollingerBands
 import dev.zieger.plottingcompose.indicators.candles.BollingerBandsParameter
 import dev.zieger.plottingcompose.indicators.candles.ICandle
 import dev.zieger.plottingcompose.processor.ProcessingScope
-import dev.zieger.plottingcompose.strategy.dto.*
+import dev.zieger.plottingcompose.strategy.dto.BearBuy
+import dev.zieger.plottingcompose.strategy.dto.BearSell
+import dev.zieger.plottingcompose.strategy.dto.BullBuy
+import dev.zieger.plottingcompose.strategy.dto.BullSell
 import dev.zieger.plottingcompose.strategy.dto.Direction.BUY
 import dev.zieger.plottingcompose.strategy.dto.Direction.SELL
 import dev.zieger.plottingcompose.strategy.dto.Pairs.XBTUSD
 import dev.zieger.utils.misc.max
 import dev.zieger.utils.misc.min
-import dev.zieger.utils.misc.nullWhen
-import kotlin.math.pow
 
 data class BbStrategyOptions(
     val bbOptions: BollingerBandsParameter = BollingerBandsParameter(),
     val strategyParams: StrategyParameter = StrategyParameter(),
-    val initialCash: Long = 1_000,
-    val leverage: Double = 5.0,
-    val dcaNumMax: Int = 4,
-    val nextBullPrice: (idx: Int, lastPrice: Double) -> Double = { idx, lastPrice ->
-        when (idx) {
-            0 -> lastPrice
-            else -> {
-                val step = lastPrice * 0.05
-                lastPrice - step * 2.0.pow(idx - 1)
-            }
-        }
-    },
-    val nextBearPrice: (idx: Int, lastPrice: Double) -> Double = { idx, lastPrice ->
-        when (idx) {
-            0 -> lastPrice
-            else -> {
-                val step = lastPrice * 0.05
-                lastPrice + step * 2.0.pow(idx - 1)
-            }
-        }
-    },
-    val nextVolume: (idx: Int) -> Double = { idx ->
-        (2.0.pow(idx))
-    }
+    val initialCash: Long = strategyParams.initialCash,
+    val leverage: Double = strategyParams.leverage,
+    val dcaMinLossPercentForOrder: Double = 2.0,
+    val dcaFactor: Double = 2.0,
+    val dcaStart: Int = 1,
+    val dcaNumMax: Int = strategyParams.maxOrdersPerSide,
+    val stopLossFactor: Int = 2,
+    val calcPriceIdxFactor: Double = 1.0
 )
 
 class BbStrategy(
     private val param: BbStrategyOptions = BbStrategyOptions(),
-    internalExchange: Exchange<ICandle> = MockExchange()
+    internalExchange: Exchange<ICandle> = MockExchange(
+        MockExchangeParameter(
+            param.initialCash.toDouble(),
+            param.leverage
+        )
+    )
 ) : Strategy<ICandle>(
     param.strategyParams, internalExchange, key(),
     listOf(), BollingerBands.key(param.bbOptions)
-) {
+), DcaTool {
 
     companion object : IndicatorDefinition<BbStrategyOptions>() {
         override fun key(param: BbStrategyOptions) = Key("BbStrategy", param) { BbStrategy(param) }
@@ -61,11 +51,6 @@ class BbStrategy(
     }
 
     private var skipped = 0
-
-    private val bullBuys = HashMap<Int, RemoteOrder<BullBuy>>(param.dcaNumMax)
-    private val bullSells = HashMap<Int, RemoteOrder<BullSell>>(param.dcaNumMax)
-    private val bearSells = HashMap<Int, RemoteOrder<BearSell>>(param.dcaNumMax)
-    private val bearBuys = HashMap<Int, RemoteOrder<BearBuy>>(param.dcaNumMax)
 
     override suspend fun ProcessingScope<ICandle>.placeOrders() {
         if (++skipped < 200) return
@@ -81,64 +66,50 @@ class BbStrategy(
     }
 
     private suspend fun ProcessingScope<ICandle>.placeBullOrders(bb: BbValues) {
-        val p = position?.nullWhen { it.direction != BUY }
+        val p = position?.takeIf { it.direction == BUY }
         val lastPrice = p?.enterTrades?.maxOfOrNull { it.order.counterPrice } ?: min(input.low, bb.low)
-        ((p?.enterTrades?.size ?: 0)..param.dcaNumMax step 1).forEach { slotId ->
-            val price = param.nextBullPrice(slotId, lastPrice)
-            bullBuys[slotId]?.change(price) ?: run {
-                bullBuys[slotId] = order(BullBuy(slotId, XBTUSD, input.x, price, param.nextVolume(slotId), BUY))
-                    .onExecuted {
-                        bullBuys.remove(slotId)
-                        false
-                    }.onCancelled {
-                        bullBuys.remove(slotId)
-                        false
-                    }
-            }
+        ((p?.enterTrades?.size ?: 0) until param.maxNumDca() step 1).forEach { slotId ->
+            val price = param.calcDcaPrice(lastPrice, BUY, slotId)
+            bullBuys[slotId]?.change(price)
+                ?: order(BullBuy(slotId, XBTUSD, input.x, price, param.calcDcaVolume(slotId)))
+        }
+        (param.maxNumDca() until param.dcaNumMax step 1).forEach { slotId ->
+            bullBuys[slotId]?.cancel()
         }
 
-        if (position?.direction == BUY)
-            bullSells[0]?.change(bb.high - 1, position.exitCounterVolumeDiff(bb.high - 1)) ?: run {
-                bullSells[0] =
-                    order(BullSell(0, XBTUSD, input.x, bb.high - 1, position.exitCounterVolumeDiff(bb.high - 1), SELL))
-                        .onExecuted {
-                            bullSells.remove(0)
-                            false
-                        }.onCancelled {
-                            bullSells.remove(0)
-                            false
-                        }
-            }
+        if (p?.direction == BUY)
+            bullSells[0]?.change(
+                bb.high - counterTickSize(bb.high),
+                p.exitCounterVolumeDiff(bb.high - counterTickSize(bb.high))
+            ) ?: order(
+                BullSell(
+                    0, XBTUSD, input.x, bb.high - counterTickSize(bb.high),
+                    p.exitCounterVolumeDiff(bb.high - counterTickSize(bb.high))
+                )
+            )
     }
 
     private suspend fun ProcessingScope<ICandle>.placeBearOrders(bb: BbValues) {
-        val p = position?.nullWhen { it.direction != SELL }
+        val p = position?.takeIf { it.direction == SELL }
         val lastPrice = p?.enterTrades?.minOfOrNull { it.order.counterPrice } ?: max(input.high, bb.high)
-        ((p?.enterTrades?.size ?: 0)..param.dcaNumMax step 1).forEach { slotId ->
-            val price = param.nextBearPrice(slotId, lastPrice)
-            bearSells[slotId]?.change(price) ?: run {
-                bearSells[slotId] = order(BearSell(slotId, XBTUSD, input.x, price, param.nextVolume(slotId), SELL))
-                    .onExecuted {
-                        bearSells.remove(slotId)
-                        false
-                    }.onCancelled {
-                        bearSells.remove(slotId)
-                        false
-                    }
-            }
+        ((p?.enterTrades?.size ?: 0) until param.maxNumDca() step 1).forEach { slotId ->
+            val price = param.calcDcaPrice(lastPrice, SELL, slotId)
+            bearSells[slotId]?.change(price)
+                ?: order(BearSell(slotId, XBTUSD, input.x, price, param.calcDcaVolume(slotId)))
+        }
+        (param.maxNumDca() until param.dcaNumMax step 1).forEach { slotId ->
+            bearSells[slotId]?.cancel()
         }
 
-        if (position?.direction == SELL)
-            bearBuys[0]?.change(bb.low + 1, position.exitCounterVolumeDiff(bb.low + 1)) ?: run {
-                bearBuys[0] =
-                    order(BearBuy(0, XBTUSD, input.x, bb.low + 1, position.exitCounterVolumeDiff(bb.low + 1), BUY))
-                        .onExecuted {
-                            bearBuys.remove(0)
-                            false
-                        }.onCancelled {
-                            bearBuys.remove(0)
-                            false
-                        }
-            }
+        if (p?.direction == SELL)
+            bearBuys[0]?.change(
+                bb.low + counterTickSize(bb.low),
+                p.exitCounterVolumeDiff(bb.low + counterTickSize(bb.low))
+            ) ?: order(
+                BearBuy(
+                    0, XBTUSD, input.x, bb.low + counterTickSize(bb.low),
+                    p.exitCounterVolumeDiff(bb.low + counterTickSize(bb.low))
+                )
+            )
     }
 }

@@ -20,6 +20,7 @@ val <A, B> Pair<A, B>.y: B
 interface IGlobalChartEnvironment {
     val chartSize: MutableState<IntSize>
     val translation: MutableState<Offset>
+    val translationXRange: MutableState<ClosedRange<Float>>
     val translationOffsetX: MutableState<Float>
     val scale: MutableState<Pair<Double, Double>>
     val scaleOffset: MutableState<Pair<Double, Double>>
@@ -47,9 +48,16 @@ interface IGlobalChartEnvironment {
     }
 
     fun applyScaleRange(numData: Int, plotRect: Rect) {
-        val xFactor = numData / plotRect.width
-        scaleRange.value = ((xFactor * 0.01)..(xFactor * 1.1)) to (0.0001..1000.0)
+        val xFactor = numData / plotRect.width.toDouble()
+        scaleRange.value = ((xFactor * 0.01)..(xFactor)) to (0.0001..1000.0)
 //        println("scaleRange=${scaleRange.value}")
+    }
+
+    fun applyTranslationRange(numData: Int, plotRect: Rect) {
+        translationXRange.value =
+            0f..(numData.toFloat() / finalScale.x.toFloat() - plotRect.width).coerceAtLeast(0.00001f)
+
+//        println("transRangeX=${translationXRange.value}")
     }
 
     fun applyScaleOffset(visibleArea: VisibleArea, numData: Int, width: Float) {
@@ -58,7 +66,7 @@ interface IGlobalChartEnvironment {
             is NumData.Fixed -> scaleOffset.value.copy(area.numData / width.toDouble())
         }
 
-        println("offset=${scaleOffset.value}; num=$numData; width=$width")
+//        println("offset=${scaleOffset.value}; num=$numData; width=$width")
     }
 
     fun applyTranslationOffsetX(
@@ -68,10 +76,17 @@ interface IGlobalChartEnvironment {
         numItems: Int,
         widthDivisor: Float
     ) {
-        translationOffsetX.value = scaleFocusedItemIdx.value?.let { -it.itemX }
-            ?: (-rawXRange.endInclusive + plotRect.width * visibleArea.relativeEnd)// *
-//                   (scaleFocusedItemIdx.value?.let { (it.idxRange.start + it.itemIdx) / (numItems - 1).toDouble() }?.toFloat() ?: 1f)
-        println("transOffX=${translationOffsetX.value}")
+        scaleOffset
+        val x = /*scaleFocusedItemIdx.value?.let {
+            val numVisible = numItems / finalScale.x
+            val relativeVisibleIdx = (it.itemIdx - it.idxRange.start) / it.idxRange.range().toFloat()
+            val visibleBeforeFocused = numVisible * relativeVisibleIdx// / scale.value.x
+            (-it.itemX + visibleBeforeFocused.toFloat()) / scale.value.x.toFloat()
+        } ?: */(-rawXRange.endInclusive + plotRect.width * visibleArea.relativeEnd)
+
+        translationOffsetX.value = x
+
+//        println("transOffX=${translationOffsetX.value}; scaledFocusedItemIdx=${scaleFocusedItemIdx.value}; width=${plotRect.width}; transx=${translation.value.x}; numItems=$numItems")
     }
 
     fun processVerticalScrolling(delta: Float) {
@@ -88,7 +103,7 @@ interface IGlobalChartEnvironment {
         mousePosition.value?.also { mp -> scaleCenterRelative.value = mp / chartSize.value }
         focusedItemIdx.value?.also { item -> scaleFocusedItemIdx.value = item }
 
-        println("scale=${scale.value}; offset=${scaleOffset.value}; final=$finalScale")
+//        println("scale=${scale.value}; offset=${scaleOffset.value}; final=$finalScale")
     }
 
     fun processHorizontalScroll(delta: Float) {
@@ -102,14 +117,18 @@ interface IGlobalChartEnvironment {
     }
 }
 
+fun Offset.coerceIn(xRange: ClosedRange<Float>, yRange: ClosedRange<Float>): Offset =
+    Offset(-(-x).coerceIn(xRange), y.coerceIn(yRange))
+
 private operator fun Offset.times(other: IntSize): Offset =
     Offset(x * other.width, y * other.height)
 
 interface IChartEnvironment : IGlobalChartEnvironment {
     val translationOffsetY: MutableState<Float>
     val finalTranslation: Offset
-        get() = translation.value +
-                Offset(translationOffsetX.value, translationOffsetY.value)
+        get() = (translation.value +
+                Offset(translationOffsetX.value, translationOffsetY.value))
+            .run { Offset(-(-x).coerceIn(translationXRange.value), y) }
 
     val heightDivisor: MutableState<Double>
     val xLabelHeight: MutableState<Double>
@@ -123,12 +142,14 @@ interface IChartEnvironment : IGlobalChartEnvironment {
     fun applyTranslationOffsetY(chart: Chart<*>, visibleYPixelRange: ClosedFloatingPointRange<Double>, plotRect: Rect) {
         val relMargin = chart.margin.bottom(chartSize.value).value / chartSize.value.height
         translationOffsetY.value = visibleYPixelRange.start.toFloat() - plotRect.height * relMargin
+//        println("transOffY=${translationOffsetY.value}")
     }
 }
 
 data class GlobalChartEnvironment(
     override val chartSize: MutableState<IntSize> = mutableStateOf(IntSize.Zero),
-    override val translation: MutableState<Offset> = mutableStateOf(Offset.Zero),//(-20000f, 0f)),
+    override val translation: MutableState<Offset> = mutableStateOf(Offset.Zero),
+    override val translationXRange: MutableState<ClosedRange<Float>> = mutableStateOf(0f..1f),
     override val translationOffsetX: MutableState<Float> = mutableStateOf(0f),
     override val scale: MutableState<Pair<Double, Double>> = mutableStateOf(1.0 to 1.0),
     override val scaleOffset: MutableState<Pair<Double, Double>> = mutableStateOf(1.0 to 1.0),

@@ -24,8 +24,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
 
     implementation("dev.zieger.utils:time:3.0.13")
-    implementation("dev.zieger:bybitapi:1.0.2")
+    implementation("dev.zieger:bybitapi:1.0.3")
     implementation("dev.zieger:tablecomposable:1.0.2")
+
+    implementation("dev.zieger.candleproxy:client:1.0.0")
+    implementation("dev.zieger.candleproxy:dto:1.0.0")
 
     val kotlinSerializationVersion: String by project
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
@@ -37,6 +40,8 @@ dependencies {
     implementation("io.ktor:ktor-client-auth-jvm:$ktorVersion")
     implementation("io.ktor:ktor-client-websockets:$ktorVersion")
     implementation("io.ktor:ktor-client-serialization:$ktorVersion")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
 
     val koTestVersion: String by project
     testImplementation("io.kotest:kotest-runner-junit5:$koTestVersion")
