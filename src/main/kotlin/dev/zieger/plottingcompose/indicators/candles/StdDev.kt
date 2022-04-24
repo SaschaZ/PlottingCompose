@@ -9,12 +9,12 @@ import kotlin.math.sqrt
 
 data class StdDevParameter(
     val length: Int,
-    val singles: Slot<ICandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES
+    val singles: Slot<IndicatorCandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES
 )
 
 data class StdDev(
     val params: StdDevParameter
-) : Indicator<ICandle>(
+) : Indicator<IndicatorCandle>(
     key(params), listOf(STD_DEV),
     params.singles.key
 ) {
@@ -26,7 +26,7 @@ data class StdDev(
         val STD_DEV = Port<Output.Scalar>("StdDev")
     }
 
-    override suspend fun ProcessingScope<ICandle>.process() {
+    override suspend fun ProcessingScope<IndicatorCandle>.process() {
         params.singles.value()?.items?.asFloats()?.let { closes ->
             val mean = closes.average()
             val stdDev = sqrt(closes.map { it.toDouble() - mean }.map { it.pow(2) }.average())

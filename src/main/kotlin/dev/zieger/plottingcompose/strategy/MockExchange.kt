@@ -1,6 +1,6 @@
 package dev.zieger.plottingcompose.strategy
 
-import dev.zieger.plottingcompose.indicators.candles.ICandle
+import dev.zieger.plottingcompose.indicators.candles.IndicatorCandle
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.strategy.dto.*
 import kotlinx.coroutines.CoroutineScope
@@ -18,11 +18,11 @@ data class MockExchangeParameter(
 
 class MockExchange(
     private val param: MockExchangeParameter = MockExchangeParameter()
-) : Exchange<ICandle> {
+) : Exchange<IndicatorCandle> {
 
     private val scope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher())
 
-    private lateinit var currentInput: ICandle
+    private lateinit var currentInput: IndicatorCandle
 
     override val cash: Double
         get() = param.initialCash +
@@ -98,7 +98,7 @@ class MockExchange(
         remoteOrders.removeIf { it.order == order }
     }
 
-    override suspend fun processCandle(scope: ProcessingScope<ICandle>): Unit = scope.run {
+    override suspend fun processCandle(scope: ProcessingScope<IndicatorCandle>): Unit = scope.run {
         currentInput = input
 
         remoteOrdersMutex.withLock {
@@ -115,17 +115,18 @@ class MockExchange(
         }
     }
 
-    private suspend fun List<RemoteOrder<*>>.processOrders(candle: ICandle): Set<RemoteOrder<*>> = mapNotNull { ro ->
-        ro.takeIf {
-            ro.order.run {
-                position = when (position?.direction) {
-                    Direction.BUY -> when (direction) {
-                        Direction.BUY -> {
-                            if (counterPrice >= candle.low) {
-                                val trade = Trade(candle.x, this)
-                                ro.executed(trade)
-                                position!!.copy(enterTrades = position!!.enterTrades + trade)
-                                    .also { println("Bull buy $trade; pos closed=${it.isClosed}") }
+    private suspend fun List<RemoteOrder<*>>.processOrders(candle: IndicatorCandle): Set<RemoteOrder<*>> =
+        mapNotNull { ro ->
+            ro.takeIf {
+                ro.order.run {
+                    position = when (position?.direction) {
+                        Direction.BUY -> when (direction) {
+                            Direction.BUY -> {
+                                if (counterPrice >= candle.low) {
+                                    val trade = Trade(candle.x, this)
+                                    ro.executed(trade)
+                                    position!!.copy(enterTrades = position!!.enterTrades + trade)
+                                        .also { println("Bull buy $trade; pos closed=${it.isClosed}") }
                             } else null
                         }
                         Direction.SELL -> {

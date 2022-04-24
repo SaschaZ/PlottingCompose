@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import dev.zieger.plottingcompose.scopes.IGlobalChartEnvironment
 import dev.zieger.plottingcompose.styles.PlotStyle
 import org.jetbrains.skia.Typeface
 
@@ -15,7 +14,10 @@ class ChartDefinition<T : Input>(
     val backgroundColor: Color = Color.Black,
     val visibleArea: VisibleArea = VisibleArea()
 ) {
-    val charts: List<Chart<T>> = chart.onEach { it.visibleArea = visibleArea }.toList()
+    val charts: List<Chart<T>> = chart.onEach {
+        it.definition = this
+        it.visibleArea = visibleArea
+    }.toList()
 }
 
 data class VisibleArea(
@@ -60,10 +62,10 @@ class Chart<T : Input>(
     val margin: Margin = Margin({ 0.dp }, { 20.dp }),
     val verticalWeight: Float = 1f,
     val tickLength: IntSize.() -> Dp = { 15.dp },
-    val yTicks: IGlobalChartEnvironment.(yRange: ClosedRange<Double>) -> Ticks = {
-        TickHelper.ticksY(it, 15)
+    val yTicks: (yRange: ClosedRange<Double>, amount: Int) -> Ticks = { yRange, amount ->
+        TickHelper.ticksY(yRange, amount)
     },
-    val xTicks: IGlobalChartEnvironment.(idxRange: ClosedRange<Int>, xRange: ClosedRange<Double>, amount: Int) -> Ticks = { idxRange, xRange, amount ->
+    val xTicks: (idxRange: ClosedRange<Int>, xRange: ClosedRange<Double>, amount: Int) -> Ticks = { idxRange, xRange, amount ->
         TickHelper.ticksX(xRange, amount, idxRange)
     },
     val drawYLabels: Boolean = true,
@@ -74,6 +76,7 @@ class Chart<T : Input>(
     val tickColor: Color = Color.Gray,
     val tickLabelColor: Color = Color.Gray
 ) {
+    lateinit var definition: ChartDefinition<T>
     lateinit var visibleArea: VisibleArea
     val plots: List<PlotStyle<T>> = plot.toList()
 

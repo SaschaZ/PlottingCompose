@@ -7,7 +7,7 @@ import dev.zieger.plottingcompose.indicators.IndicatorDefinition
 import dev.zieger.plottingcompose.indicators.candles.BbValues
 import dev.zieger.plottingcompose.indicators.candles.BollingerBands
 import dev.zieger.plottingcompose.indicators.candles.BollingerBandsParameter
-import dev.zieger.plottingcompose.indicators.candles.ICandle
+import dev.zieger.plottingcompose.indicators.candles.IndicatorCandle
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.strategy.dto.BearBuy
 import dev.zieger.plottingcompose.strategy.dto.BearSell
@@ -24,23 +24,23 @@ data class BbStrategyOptions(
     val strategyParams: StrategyParameter = StrategyParameter(),
     val initialCash: Long = strategyParams.initialCash,
     val leverage: Double = strategyParams.leverage,
-    val dcaMinLossPercentForOrder: Double = 2.0,
+    val dcaMinLossPercentForOrder: Double = 1.5,
     val dcaFactor: Double = 2.0,
     val dcaStart: Int = 1,
     val dcaNumMax: Int = strategyParams.maxOrdersPerSide,
     val stopLossFactor: Int = 2,
-    val calcPriceIdxFactor: Double = 1.0
+    val calcPriceIdxFactor: Double = 1.19
 )
 
 class BbStrategy(
     private val param: BbStrategyOptions = BbStrategyOptions(),
-    internalExchange: Exchange<ICandle> = MockExchange(
+    internalExchange: Exchange<IndicatorCandle> = MockExchange(
         MockExchangeParameter(
             param.initialCash.toDouble(),
             param.leverage
         )
     )
-) : Strategy<ICandle>(
+) : Strategy<IndicatorCandle>(
     param.strategyParams, internalExchange, key(),
     listOf(), BollingerBands.key(param.bbOptions)
 ), DcaTool {
@@ -52,7 +52,7 @@ class BbStrategy(
 
     private var skipped = 0
 
-    override suspend fun ProcessingScope<ICandle>.placeOrders() {
+    override suspend fun ProcessingScope<IndicatorCandle>.placeOrders() {
         if (++skipped < 200) return
 
         (BollingerBands.key(param.bbOptions) dataOf BollingerBands.BB_VALUES)?.also { bb ->
@@ -60,12 +60,12 @@ class BbStrategy(
         }
     }
 
-    private suspend fun ProcessingScope<ICandle>.placeOrders2(bb: BbValues) {
+    private suspend fun ProcessingScope<IndicatorCandle>.placeOrders2(bb: BbValues) {
         placeBullOrders(bb)
         placeBearOrders(bb)
     }
 
-    private suspend fun ProcessingScope<ICandle>.placeBullOrders(bb: BbValues) {
+    private suspend fun ProcessingScope<IndicatorCandle>.placeBullOrders(bb: BbValues) {
         val p = position?.takeIf { it.direction == BUY }
         val lastPrice = p?.enterTrades?.maxOfOrNull { it.order.counterPrice } ?: min(input.low, bb.low)
         ((p?.enterTrades?.size ?: 0) until param.maxNumDca() step 1).forEach { slotId ->
@@ -89,7 +89,7 @@ class BbStrategy(
             )
     }
 
-    private suspend fun ProcessingScope<ICandle>.placeBearOrders(bb: BbValues) {
+    private suspend fun ProcessingScope<IndicatorCandle>.placeBearOrders(bb: BbValues) {
         val p = position?.takeIf { it.direction == SELL }
         val lastPrice = p?.enterTrades?.minOfOrNull { it.order.counterPrice } ?: max(input.high, bb.high)
         ((p?.enterTrades?.size ?: 0) until param.maxNumDca() step 1).forEach { slotId ->

@@ -1,5 +1,6 @@
 package dev.zieger.plottingcompose.indicators.candles
 
+import dev.zieger.candleproxy.dto.ICandle
 import dev.zieger.plottingcompose.definition.Input
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Output
@@ -8,7 +9,7 @@ import dev.zieger.plottingcompose.indicators.Indicator
 import dev.zieger.plottingcompose.indicators.IndicatorDefinition
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
-class Candles(val length: Int) : Indicator<ICandle>(
+class Candles(val length: Int) : Indicator<IndicatorCandle>(
     key(length), listOf(CANDLES)
 ) {
 
@@ -20,9 +21,9 @@ class Candles(val length: Int) : Indicator<ICandle>(
         val CANDLES: Port<Output.Container<Ohcl.Companion.Ohcl>> = Port("Candles", false)
     }
 
-    private var candles: HashMap<Long, ICandle> = HashMap()
+    private var candles: HashMap<Long, IndicatorCandle> = HashMap()
 
-    override suspend fun ProcessingScope<ICandle>.process() {
+    override suspend fun ProcessingScope<IndicatorCandle>.process() {
         candles[input.openTime] = input
         if (candles.size == length + 1)
             candles.remove(candles.minByOrNull { it.key }!!.key)
@@ -35,17 +36,15 @@ class Candles(val length: Int) : Indicator<ICandle>(
     }
 }
 
-interface ICandle : Input {
+interface IndicatorCandle : ICandle, Input {
 
     val openTime: Long
+        get() = time.millisLong
+
     override val x: Number
         get() = openTime
-
-    val open: Double
-    val high: Double
-    val close: Double
-    val low: Double
-
-    val volume: Double
 }
 
+class IndicatorCandleImpl(
+    candle: ICandle
+) : ICandle by candle, IndicatorCandle

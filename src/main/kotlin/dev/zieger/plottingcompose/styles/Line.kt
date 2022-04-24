@@ -1,6 +1,5 @@
 package dev.zieger.plottingcompose.styles
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.scopes.IPlotDrawScope
@@ -21,14 +20,8 @@ open class Line<T : Input, D : Output>(
             lineForData(it)?.also { line ->
                 drawLine(
                     color,
-                    Offset(
-                        (line.start.x / widthDivisor).toFloat(),
-                        plotRect.bottom + line.start.y / heightDivisor.value.toFloat()
-                    ).toScene(),
-                    Offset(
-                        (line.end.x / widthDivisor.toFloat()),
-                        plotRect.bottom - line.end.y / heightDivisor.value.toFloat()
-                    ).toScene(),
+                    line.start.toScene(),
+                    line.end.toScene(),
                     width,
                     alpha = color.alpha
                 )

@@ -22,8 +22,6 @@ import dev.zieger.plottingcompose.bitinex.BitfinexInterval.H1
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.USD
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.XMR
 import dev.zieger.plottingcompose.definition.*
-import dev.zieger.plottingcompose.definition.TickHelper.ticksIdx
-import dev.zieger.plottingcompose.definition.TickHelper.timeFormat
 import dev.zieger.plottingcompose.indicators.candles.*
 import dev.zieger.plottingcompose.strategy.BbStrategy
 import dev.zieger.plottingcompose.strategy.BbStrategyOptions
@@ -37,19 +35,17 @@ import dev.zieger.utils.time.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import java.util.*
 
 fun buildByBitFlow(
     scope: CoroutineScope,
     symbol: Symbol = Symbol.BTCUSD,
     interval: Interval = Interval.H1,
-    barsBack: Int = 365 * 24
+    barsBack: Int = (3.5 * 365 * 24).toInt()
 ) = CandleProxyClient("http://localhost", 8080).candles(
     symbol,
     interval,
     TimeStamp() - barsBack * interval.duration..TimeStamp()
-)
-    .map { Ohcl.Companion.Ohcl(it.open, it.high, it.close, it.low, it.volume.toDouble(), it.time.millisLong) }
+).map { Ohcl.Companion.Ohcl(it.open, it.high, it.close, it.low, it.volume, it.time.millisLong) }
 
 fun buildBitfinexFlow(
     scope: CoroutineScope,
@@ -60,12 +56,13 @@ fun buildBitfinexFlow(
     .plus(SocketEndpoint(scope).candles(pair, interval))
 
 fun main() = application {
-    TimeStamp.DEFAULT_TIME_ZONE = TimeZone.getTimeZone("UTC")
+    TimeStamp.DEFAULT_TIME_ZONE = UTC
+
     MaterialTheme(MaterialTheme.colors.copy(background = Color.Black, onBackground = Color.White)) {
         val scope = rememberCoroutineScope()
 
-        val byBitFlow = remember { mutableStateOf<Flow<ICandle>>(buildByBitFlow(scope)) }
-        val finexFlow = remember { mutableStateOf<Flow<ICandle>>(buildBitfinexFlow(scope)) }
+        val byBitFlow = remember { mutableStateOf<Flow<IndicatorCandle>>(buildByBitFlow(scope)) }
+        val finexFlow = remember { mutableStateOf<Flow<IndicatorCandle>>(buildBitfinexFlow(scope)) }
 
         val chartDefinition = remember {
             val bbOptions = BollingerBandsParameter(20, 2.0, AverageType.SMA)
@@ -80,11 +77,11 @@ fun main() = application {
                     ),
                     verticalWeight = 0.15f,
                     drawXLabels = false,
-                    yTicks = {
-                        TickHelper.ticksY(it, 5)
+                    yTicks = { valueRange, amount ->
+                        TickHelper.ticksY(valueRange, 5)
                     },
                     xTicks = { idxRange, valueRange, amount ->
-                        idxRange.ticksIdx(amount, 50f).timeFormat(valueRange, idxRange)
+                        TickHelper.ticksXTime(valueRange.toTime(), idxRange, amount)
                     }
                 ),
                 Chart(
@@ -154,13 +151,24 @@ fun main() = application {
                             }
                         }
                     ) { (it.position ?: it.closedPosition)?.averageEnterCounterPrice?.toFloat() },
+                    Line(bbStrategyKey with Strategy.STRATEGY_RESULTS, Color.Yellow, 3f) {
+                        it.closedPosition?.let { pos ->
+                            Output.Line(
+                                Offset(it.x, pos.averageEnterCounterPrice),
+                                Offset(it.x, pos.averageExitCounterPrice)
+                            )
+                        }
+                    },
                     Label(bbStrategyKey with Strategy.STRATEGY_RESULTS, mouseIsPositionSource = true) {
                         it.input.close.toFloat() to "$it"
                     }.whenFocused(),
                     verticalWeight = 0.7f,
                     drawXLabels = false,
                     xTicks = { idxRange, valueRange, amount ->
-                        idxRange.ticksIdx(amount, 50f).timeFormat(valueRange, idxRange)
+                        TickHelper.ticksXTime(valueRange.toTime(), idxRange, amount)
+                    },
+                    yTicks = { valueRange, _ ->
+                        TickHelper.ticksY(valueRange, 14)
                     }
                 ),
                 Chart(
@@ -177,11 +185,11 @@ fun main() = application {
                         )
                     ),
                     verticalWeight = 0.15f,
-                    yTicks = {
-                        TickHelper.ticksY(it, 4)
+                    yTicks = { valueRange, _ ->
+                        TickHelper.ticksY(valueRange, 4)
                     },
-                    xTicks = { idxRange, xRange, amount ->
-                        idxRange.ticksIdx(amount, 50f).timeFormat(xRange, idxRange)
+                    xTicks = { idxRange, valueRange, amount ->
+                        TickHelper.ticksXTime(valueRange.toTime(), idxRange, amount)
                     }
                 ),
                 visibleArea = VisibleArea(0.8f, NumData.Fixed(300))
@@ -240,7 +248,7 @@ fun TopSelection(
     provider: CandleProvider,
     initialPairIdx: Int,
     modifier: Modifier = Modifier,
-    onChange: (Flow<ICandle>) -> Unit
+    onChange: (Flow<IndicatorCandle>) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val spinnerColors = remember { SpinnerColors(Color.White, Color.White, Color(0xFF292929), Color.White) }
@@ -295,7 +303,7 @@ fun TopSelection(
 
 enum class CandleProvider(
     val providedPairs: List<Pair>,
-    val build: (scope: CoroutineScope, base: String, counter: String, interval: ITimeSpan) -> Flow<ICandle>
+    val build: (scope: CoroutineScope, base: String, counter: String, interval: ITimeSpan) -> Flow<IndicatorCandle>
 ) {
     ByBit(listOf(Pairs.BTCUSD), { scope, base, counter, interval ->
         buildByBitFlow(

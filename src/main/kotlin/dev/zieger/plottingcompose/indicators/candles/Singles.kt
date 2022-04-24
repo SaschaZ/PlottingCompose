@@ -7,13 +7,13 @@ import dev.zieger.plottingcompose.processor.ProcessingScope
 
 data class SinglesParameter(
     val length: Int,
-    val candles: Slot<ICandle, Output.Container<Ohcl.Companion.Ohcl>> =
+    val candles: Slot<IndicatorCandle, Output.Container<Ohcl.Companion.Ohcl>> =
         Candles.key(length) with Candles.CANDLES
 )
 
 data class Singles(
     val param: SinglesParameter
-) : Indicator<ICandle>(
+) : Indicator<IndicatorCandle>(
     key(param),
     listOf(OPENS, HIGHS, CLOSES, LOWS, VOLUMES), param.candles.key
 ) {
@@ -30,7 +30,7 @@ data class Singles(
         val VOLUMES = Port<Output.Container<Output.Scalar>>("Volumes")
     }
 
-    override suspend fun ProcessingScope<ICandle>.process() {
+    override suspend fun ProcessingScope<IndicatorCandle>.process() {
         param.candles.value()?.let { candles ->
             set(OPENS, Output.Container(candles.items.map { Output.Scalar(it.x, it.open) }))
             set(HIGHS, Output.Container(candles.items.map { Output.Scalar(it.x, it.high) }))

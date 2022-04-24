@@ -18,10 +18,14 @@ repositories {
 }
 
 dependencies {
+    implementation(kotlin("reflect"))
     implementation(compose.desktop.currentOs)
 
     val kotlinCoroutinesVersion: String by project
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
+
+    val koinVersion: String by project
+    implementation("io.insert-koin:koin-core:$koinVersion")
 
     implementation("dev.zieger.utils:time:3.0.13")
     implementation("dev.zieger:bybitapi:1.0.3")

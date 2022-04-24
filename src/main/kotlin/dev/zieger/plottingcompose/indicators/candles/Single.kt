@@ -7,7 +7,7 @@ import dev.zieger.plottingcompose.indicators.Indicator
 import dev.zieger.plottingcompose.indicators.IndicatorDefinition
 import dev.zieger.plottingcompose.processor.ProcessingScope
 
-class Single : Indicator<ICandle>(
+class Single : Indicator<IndicatorCandle>(
     key(),
     listOf(OPEN, HIGH, CLOSE, LOW, VOLUME)
 ) {
@@ -24,7 +24,7 @@ class Single : Indicator<ICandle>(
         val VOLUME = Port<Output.Scalar>("Volume")
     }
 
-    override suspend fun ProcessingScope<ICandle>.process() {
+    override suspend fun ProcessingScope<IndicatorCandle>.process() {
         set(OPEN, Output.Scalar(input.x, input.open))
         set(HIGH, Output.Scalar(input.x, input.high))
         set(CLOSE, Output.Scalar(input.x, input.close))

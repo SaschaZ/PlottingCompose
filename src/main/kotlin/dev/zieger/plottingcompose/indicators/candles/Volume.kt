@@ -7,7 +7,7 @@ import dev.zieger.plottingcompose.indicators.IndicatorDefinition
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.styles.ImpulseData
 
-class Volume : Indicator<ICandle>(key(), listOf(VOLUME)) {
+class Volume : Indicator<IndicatorCandle>(key(), listOf(VOLUME)) {
 
     companion object : IndicatorDefinition<Unit>() {
 
@@ -17,7 +17,7 @@ class Volume : Indicator<ICandle>(key(), listOf(VOLUME)) {
         val VOLUME = Port<ImpulseData>("VOLUME")
     }
 
-    override suspend fun ProcessingScope<ICandle>.process() {
+    override suspend fun ProcessingScope<IndicatorCandle>.process() {
         set(VOLUME, ImpulseData(input.x, input.volume, input.close > input.open))
     }
 }

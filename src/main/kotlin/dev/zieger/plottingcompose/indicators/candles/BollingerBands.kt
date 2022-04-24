@@ -16,7 +16,7 @@ data class BollingerBandsParameter(
 
 data class BollingerBands(
     val param: BollingerBandsParameter,
-) : Indicator<ICandle>(
+) : Indicator<IndicatorCandle>(
     key(param), listOf(HIGH, MID, LOW, BB_VALUES),
     StdDev.key(param.length), param.averageType(param.length)
 ) {
@@ -35,7 +35,7 @@ data class BollingerBands(
         val BB_VALUES = Port<BbValues>("BbValues")
     }
 
-    override suspend fun ProcessingScope<ICandle>.process() {
+    override suspend fun ProcessingScope<IndicatorCandle>.process() {
         (StdDev.key(param.length) dataOf StdDev.STD_DEV)?.scalar?.toDouble()?.let { stdDev ->
             (param.averageType(param.length) with when (param.averageType) {
                 AverageType.SMA -> Sma.SMA

@@ -9,12 +9,12 @@ import dev.zieger.plottingcompose.processor.ProcessingScope
 
 data class SmaParameter(
     val length: Int,
-    val singles: Slot<ICandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES
+    val singles: Slot<IndicatorCandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES
 )
 
 data class Sma(
     val params: SmaParameter
-) : Indicator<ICandle>(
+) : Indicator<IndicatorCandle>(
     key(params), listOf(SMA), Single.key()
 ) {
 
@@ -23,13 +23,13 @@ data class Sma(
         override fun key(param: SmaParameter) = Key("Sma", param) { Sma(param) }
         fun key(
             length: Int,
-            source: Slot<ICandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES
+            source: Slot<IndicatorCandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES
         ) = key(SmaParameter(length, source))
 
         val SMA = Port<Output.Scalar>("Sma")
     }
 
-    override suspend fun ProcessingScope<ICandle>.process() {
+    override suspend fun ProcessingScope<IndicatorCandle>.process() {
         params.singles.value()?.items?.asFloats()?.also { closes ->
             set(SMA, Output.Scalar(input.x, closes.average()))
         }

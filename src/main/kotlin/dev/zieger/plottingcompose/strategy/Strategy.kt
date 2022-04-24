@@ -4,7 +4,7 @@ import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Output
 import dev.zieger.plottingcompose.definition.Port
 import dev.zieger.plottingcompose.indicators.Indicator
-import dev.zieger.plottingcompose.indicators.candles.ICandle
+import dev.zieger.plottingcompose.indicators.candles.IndicatorCandle
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.strategy.dto.*
 import dev.zieger.utils.misc.format
@@ -13,12 +13,12 @@ import kotlinx.coroutines.sync.withLock
 import java.util.*
 
 data class StrategyParameter(
-    val initialCash: Long = 10_000L,
+    val initialCash: Long = 1_000L,
     val leverage: Double = 100.0,
-    val maxOrdersPerSide: Int = 20
+    val maxOrdersPerSide: Int = 21
 )
 
-abstract class Strategy<I : ICandle>(
+abstract class Strategy<I : IndicatorCandle>(
     param: StrategyParameter,
     private val internalExchange: Exchange<I>,
     key: Key<I, *>,
@@ -37,7 +37,7 @@ abstract class Strategy<I : ICandle>(
         )
 
         class StrategyResults(
-            val input: ICandle,
+            val input: IndicatorCandle,
             val orders: StrategyOrders,
             val trades: List<Trade>,
             val position: Position?,

@@ -2,7 +2,12 @@
 
 package dev.zieger.plottingcompose.bitinex
 
-import dev.zieger.plottingcompose.indicators.candles.ICandle
+import dev.zieger.candleproxy.dto.ICurrency
+import dev.zieger.candleproxy.dto.IInterval
+import dev.zieger.candleproxy.dto.ISymbol
+import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.BTC
+import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.USD
+import dev.zieger.plottingcompose.indicators.candles.IndicatorCandle
 import dev.zieger.utils.time.*
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -65,7 +70,7 @@ class RestEndpoint {
                 parameter("end", max(start, end).millisLong)
                 parameter("sort", sort)
             }
-        }.body<List<BitfinexCandle>>().forEach { emit(it) }
+        }.body<List<BitfinexCandle>>().forEach { emit(it.copy(symbol = pair, interval = interval)) }
     }
 }
 
@@ -76,25 +81,32 @@ enum class BitfinexSort(val raw: Int) {
     override fun toString(): String = "$raw"
 }
 
-enum class BitfinexSymbol {
-    BTC,
-    XMR,
-    USD;
+enum class BitfinexSymbol(
+    override val abbreviation: String,
+    override val fullName: String = abbreviation,
+    override val isFiat: Boolean = false
+) : ICurrency {
+    BTC("BTC", "Bitcoin"),
+    XMR("XMR", "Monero"),
+    USD("USD", "US Dollar", true);
 
     override fun toString(): String = name
 }
 
 data class BitfinexPair(
-    val base: BitfinexSymbol,
-    val counter: BitfinexSymbol
-) {
-    override fun toString(): String = "t$base$counter"
+    override val base: BitfinexSymbol,
+    override val counter: BitfinexSymbol
+) : ISymbol {
+
+    override val pair: String = "t${base.abbreviation}${counter.abbreviation}"
+
+    override fun toString(): String = pair
 }
 
 enum class BitfinexInterval(
-    val duration: ITimeSpan,
+    override val duration: ITimeSpan,
     val raw: String
-) {
+) : IInterval {
 
     M1(1.minutes, "1m"),
     M5(5.minutes, "5m"),
@@ -119,10 +131,14 @@ data class BitfinexCandle(
     override val high: Double,
     override val close: Double,
     override val low: Double,
-    override val volume: Double
-) : ICandle {
+    override val volume: Long,
+    override val symbol: ISymbol = BitfinexPair(BTC, USD),
+    override val interval: IInterval = BitfinexInterval.H1
+) : IndicatorCandle {
 
-    constructor(list: List<Double>) : this(list[0].toLong(), list[1], list[3], list[2], list[4], list[5])
+    override val time: ITimeStamp = openTime.toTime()
+
+    constructor(list: List<Double>) : this(list[0].toLong(), list[1], list[3], list[2], list[4], list[5].toLong())
 
     val list: List<Double> = listOf(openTime.toDouble(), open, close, high, low, volume.toDouble())
 }
@@ -137,5 +153,4 @@ object BitfinexCandleSerializer : KSerializer<BitfinexCandle> {
 
     override fun deserialize(decoder: Decoder): BitfinexCandle =
         BitfinexCandle(decoder.decodeSerializableValue(doubleSerializer))
-
 }

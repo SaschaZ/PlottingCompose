@@ -1,12 +1,12 @@
 package dev.zieger.plottingcompose.strategy
 
-import dev.zieger.plottingcompose.indicators.candles.ICandle
+import dev.zieger.plottingcompose.indicators.candles.IndicatorCandle
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.strategy.dto.Order
 import dev.zieger.plottingcompose.strategy.dto.Position
 import dev.zieger.plottingcompose.strategy.dto.RemoteOrder
 
-interface Exchange<I : ICandle> {
+interface Exchange<I : IndicatorCandle> {
 
     val baseTickSize: Double
         get() = 0.00000001

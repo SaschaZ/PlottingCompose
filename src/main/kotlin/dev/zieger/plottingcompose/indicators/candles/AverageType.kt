@@ -12,9 +12,9 @@ enum class AverageType {
 
     operator fun invoke(
         length: Int,
-        smaSource: Slot<ICandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES,
-        emaSource: Slot<ICandle, Output.Scalar> = Single.key() with Single.CLOSE
-    ): Key<ICandle, *> =
+        smaSource: Slot<IndicatorCandle, Output.Container<Output.Scalar>> = Singles.key(SinglesParameter(length)) with Singles.CLOSES,
+        emaSource: Slot<IndicatorCandle, Output.Scalar> = Single.key() with Single.CLOSE
+    ): Key<IndicatorCandle, *> =
         when (this) {
             SMA -> Sma.key(length, smaSource)
             EMA -> Ema.key(length, emaSource)

@@ -18,9 +18,9 @@ data class SupResParameter(
 
 class SupRes(
     private val param: SupResParameter,
-    private val bbHigh: Slot<ICandle, Output.Scalar> = BollingerBands.key(param.bbParams) with BollingerBands.HIGH,
-    private val bbLow: Slot<ICandle, Output.Scalar> = BollingerBands.key(param.bbParams) with BollingerBands.LOW
-) : Indicator<ICandle>(
+    private val bbHigh: Slot<IndicatorCandle, Output.Scalar> = BollingerBands.key(param.bbParams) with BollingerBands.HIGH,
+    private val bbLow: Slot<IndicatorCandle, Output.Scalar> = BollingerBands.key(param.bbParams) with BollingerBands.LOW
+) : Indicator<IndicatorCandle>(
     key(param), listOf(MIN, MAX), bbHigh.key, bbLow.key
 ) {
     companion object : IndicatorDefinition<SupResParameter>() {
@@ -41,10 +41,10 @@ class SupRes(
     private var lastIncreased = false
     private var lastIncreasedPair: Offset = Offset.Zero
     private var lastDecreasedPair: Offset = Offset.Zero
-    private var prev: ICandle? = null
+    private var prev: IndicatorCandle? = null
     private var idx: Int = 1
 
-    override suspend fun ProcessingScope<ICandle>.process() {
+    override suspend fun ProcessingScope<IndicatorCandle>.process() {
         prev?.also { p ->
             if (p.openTime > input.openTime)
                 idx = 1

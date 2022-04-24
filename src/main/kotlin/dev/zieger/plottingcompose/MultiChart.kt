@@ -31,17 +31,17 @@ import dev.zieger.plottingcompose.definition.keys
 import dev.zieger.plottingcompose.processor.ProcessingScope
 import dev.zieger.plottingcompose.processor.Processor
 import dev.zieger.plottingcompose.scopes.*
-import dev.zieger.utils.misc.format
+import dev.zieger.utils.time.TimeFormat
+import dev.zieger.utils.time.toTime
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-
+import java.text.DecimalFormat
 
 data class InputContainer<I : Input>(val input: I, val idx: Long)
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun <T : Input> MultiChart(
     definition: ChartDefinition<T>,
@@ -62,7 +62,7 @@ fun <T : Input> MultiChart(
         collectFlow = this@collect
 
         var lastX: Double? = null
-        var lastIdx: Long = 0L
+        var lastIdx = 0L
         Processor(definition.keys()).process(mapNotNull {
             val x = it.x.toDouble()
             when {
@@ -205,7 +205,7 @@ private fun <T : Input> IPlotDrawScope<T>.drawXLabels() {
         translate(finalTranslation.copy(y = 0f)) {
             xTicks.ticks.forEach { (value, lines) ->
                 val x = (xLabelRect.left + (value + xTicks.originIdx) / widthDivisor).toFloat()
-                lines.forEachIndexed { idx, label ->
+                lines.reversed().forEachIndexed { idx, label ->
                     val y = xLabelRect.bottom - idx * xLabelHeight.value.toFloat() / lines.size
                     drawText(
                         label,
@@ -227,9 +227,9 @@ private fun <T : Input> IPlotDrawScope<T>.drawHoverXLabel() {
             focusedItemIdx.value?.let { (idx, _) ->
                 val y = xLabelRect.top + 23
                 val x = (xLabelRect.left + idx / widthDivisor).toFloat()
-                val time = chartData.keys.first { it.idx == idx }.input.x.toString()/*.toTime()
-                    .formatTime(TimeFormat.CUSTOM("dd-MM-yy HH:mm"))*/
-                val rectWidth = time.size(xLabelFontSize + 4f).width
+                val time = chartData.keys.first { it.idx == idx }.input.x.toDouble().toTime()
+                    .formatTime(TimeFormat.CUSTOM("dd-MM-yy HH:mm"))
+                val rectWidth = time.size(xLabelFontSize + 4f).width * 1.05f
                 drawRoundRect(
                     Color.White, Offset(x - rectWidth / 2, y - 22.5f), Size(rectWidth, 26f),
                     CornerRadius(5f, 5f), Fill
@@ -285,8 +285,10 @@ private fun <T : Input> IPlotDrawScope<T>.drawYLabels() {
             translate(finalTranslation.copy(x = 0f)) {
                 yTicks.ticks.forEach { (value, labels) ->
                     labels.forEachIndexed { idx, label ->
-                        val y = yLabelRect.bottom - value.toFloat() / heightDivisor.value.toFloat() + yLabelHeight / 3 -
-                                idx * yLabelHeight / labels.size - chart.margin.bottom(chartSize.value).value
+                        val y = yLabelRect.bottom -
+                                value.toFloat() / heightDivisor.value.toFloat() +
+                                yLabelHeight -
+                                chart.margin.bottom(chartSize.value).value
                         drawText(label, Offset(yLabelRect.left, y), 20f, chart.tickLabelColor)
                     }
                 }
@@ -300,7 +302,6 @@ private fun <T : Input> IPlotDrawScope<T>.drawHoverYLabel() {
         scale(1f to finalScale.y.toFloat(), scaleCenter.copy(x = 0f)) {
             translate(finalTranslation.copy(x = 0f)) {
                 focusedItemIdx.value?.let { (idx, _) ->
-                    val x = yLabelRect.left + yLabelWidth.value.toFloat() / 2
                     val yValue = chartData.entries.first { (key, _) -> key.idx == idx }
                         .value.map { (key, portValues) ->
                             key to portValues
@@ -312,10 +313,11 @@ private fun <T : Input> IPlotDrawScope<T>.drawHoverYLabel() {
                     val y = ((yLabelRect.bottom - yValue / heightDivisor.value) - 13f).toFloat()
 
 //                    println("x=$x; y=$y; yValue=$yValue")
-                    val text = yValue.format(2)
-                    val rectWidth = text.size(20f).width
+                    val text = DecimalFormat("##,###.###").format(yValue)
+                    val rectWidth = text.size(20f).width * 1.05f
+                    val x = yLabelRect.left + rectWidth / 2
                     drawRoundRect(
-                        Color.White, Offset((x - rectWidth / 2).toFloat(), y),
+                        Color.White, Offset((x - rectWidth / 2), y),
                         Size(rectWidth, 26f),
                         CornerRadius(5f, 5f), Fill
                     )
