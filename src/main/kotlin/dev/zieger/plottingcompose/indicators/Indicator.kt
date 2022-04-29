@@ -1,6 +1,6 @@
 package dev.zieger.plottingcompose.indicators
 
-import dev.zieger.plottingcompose.definition.Input
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Port
 import dev.zieger.plottingcompose.processor.ProcessingUnit

@@ -4,9 +4,13 @@ package dev.zieger.plottingcompose.styles
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.InputContainer
-import dev.zieger.plottingcompose.definition.*
-import dev.zieger.plottingcompose.scopes.IPlotDrawScope
+import dev.zieger.plottingcompose.definition.Key
+import dev.zieger.plottingcompose.definition.Output
+import dev.zieger.plottingcompose.definition.PortValue
+import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.di.ChartScope
 import kotlin.reflect.cast
 
 open class PlotStyle<I : Input>(vararg slot: Slot<I, *>?) {
@@ -14,14 +18,14 @@ open class PlotStyle<I : Input>(vararg slot: Slot<I, *>?) {
     val slots: List<Slot<I, *>> = slot.toList().filterNotNull()
     internal lateinit var data: Map<Key<I, *>, List<PortValue<*>>>
 
-    open fun IPlotDrawScope<I>.drawSeries(data: List<Pair<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>>) {
+    open fun ChartScope.drawSeries(data: List<Pair<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>>) {
         data.forEach { (input, data) ->
             this@PlotStyle.data = data
-            drawSingle(input.idx, input.input, data, focusedItemIdx.value?.itemIdx == input.idx)
+            drawSingle(input.idx, input.input, data, focusedItem.value?.idx == input.idx)
         }
     }
 
-    open fun IPlotDrawScope<I>.drawSingle(
+    open fun ChartScope.drawSingle(
         idx: Long,
         value: I,
         data: Map<Key<I, *>, List<PortValue<*>>>,

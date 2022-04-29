@@ -1,7 +1,7 @@
 package dev.zieger.plottingcompose.strategy.dto
 
 import dev.zieger.plottingcompose.definition.Output
-import dev.zieger.plottingcompose.scopes.nullWhenEmpty
+import dev.zieger.plottingcompose.nullWhenEmpty
 import dev.zieger.plottingcompose.strategy.stringBlock
 
 data class Position(

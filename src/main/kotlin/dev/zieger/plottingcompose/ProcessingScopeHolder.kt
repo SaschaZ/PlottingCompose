@@ -2,6 +2,7 @@ package dev.zieger.plottingcompose
 
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.indicators.candles.IndicatorCandle
 import dev.zieger.plottingcompose.processor.ProcessingScope
@@ -19,7 +20,6 @@ interface GlobalProcessingScopeHolder {
     fun onScopesUpdated(listener: () -> Unit): () -> Unit
 
     suspend fun processRange(range: ClosedRange<ITimeStamp>)
-    var yLabelWidth: Float
     val visibleXPixelRange: ClosedRange<Double>
 }
 
@@ -32,7 +32,8 @@ class GlobalProcessingScopeHolderImpl(
 ) : GlobalProcessingScopeHolder {
 
     override val rawXRange: ClosedRange<Float>
-        get() = allScopes.minOf { it.value.input.x.toFloat() }..allScopes.maxOf { it.value.input.x.toFloat() }
+        get() = allScopes.ifEmpty { null }
+            ?.run { minOf { it.value.input.x.toFloat() }..maxOf { it.value.input.x.toFloat() } } ?: 0f..0f
     private val allScopes: MutableMap<Long, ProcessingScope<IndicatorCandle>> = HashMap()
     override val chartData: SnapshotStateMap<InputContainer<IndicatorCandle>, Map<Key<IndicatorCandle, *>, List<PortValue<*>>>> =
         mutableStateMapOf()
@@ -44,13 +45,10 @@ class GlobalProcessingScopeHolderImpl(
         return { scopeUpdatedListener -= listener }
     }
 
-    override var yLabelWidth: Float = 0f
-
     override val visibleXPixelRange: ClosedRange<Double>
         get() = -transformationHolder.finalTranslation.x.toDouble()..
                 -transformationHolder.finalTranslation.x.toDouble() +
-                globalSizeHolder.rootBorderRect.width -
-                yLabelWidth
+                globalSizeHolder.rootBorderRect.width - globalSizeHolder.yLabelWidth.value
 
     init {
         transformationHolder.onTransformationChanged { _, _ -> updateScopes() }
@@ -83,6 +81,7 @@ class GlobalProcessingScopeHolderImpl(
     }
 
     private fun <I : Input> Map<Long, ProcessingScope<I>>.chartData(): Map<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>> {
+        if (isEmpty()) return emptyMap()
         return entries.toList().subList(
             (visibleXPixelRange.start * transformationHolder.finalScale.x).toInt(),
             (visibleXPixelRange.endInclusive * transformationHolder.finalScale.x).toInt()

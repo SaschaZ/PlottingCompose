@@ -8,11 +8,13 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.text.style.TextAlign
-import dev.zieger.plottingcompose.definition.*
+import dev.zieger.exchange.dto.Input
+import dev.zieger.plottingcompose.definition.Key
+import dev.zieger.plottingcompose.definition.Output
+import dev.zieger.plottingcompose.definition.PortValue
+import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.di.ChartScope
 import dev.zieger.plottingcompose.drawText
-import dev.zieger.plottingcompose.scopes.IPlotDrawScope
-import dev.zieger.plottingcompose.scopes.x
-import dev.zieger.plottingcompose.scopes.y
 import org.jetbrains.skia.Font
 import org.jetbrains.skia.TextLine
 
@@ -27,7 +29,7 @@ data class Label<I : Input, O : Output>(
     val fontScale: Float = 1f,
     val padding: Float = 5f,
     val mouseIsPositionSource: Boolean = false,
-    val size: IPlotDrawScope<*>.(String) -> Size = { c ->
+    val size: ChartScope.(String) -> Size = { c ->
         val font = Font(null, fontSize)
         val lines = c.split('\n').map { it to TextLine.make(it, font) }
         val labelWidth = lines.maxOf { it.second.width }
@@ -37,7 +39,7 @@ data class Label<I : Input, O : Output>(
     val selector: (O) -> Pair<Float, String>
 ) : PlotStyle<I>(ySlot) {
 
-    override fun IPlotDrawScope<I>.drawSingle(
+    override fun ChartScope.drawSingle(
         idx: Long,
         value: I,
         data: Map<Key<I, *>, List<PortValue<*>>>,

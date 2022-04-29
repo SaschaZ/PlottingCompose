@@ -2,6 +2,7 @@
 
 package dev.zieger.plottingcompose.definition
 
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.processor.ProcessingUnit
 import kotlin.reflect.KClass
 
@@ -40,7 +41,3 @@ data class Port<O : Output>(
 data class PortValue<O : Output>(val port: Port<O>, val value: O)
 
 infix fun <I : Input, O : Output> Key<I, *>.with(port: Port<out O>): Slot<I, O> = Slot(this, port)
-
-interface Input {
-    val x: Number
-}

@@ -127,16 +127,16 @@ class MockExchange(
                                     ro.executed(trade)
                                     position!!.copy(enterTrades = position!!.enterTrades + trade)
                                         .also { println("Bull buy $trade; pos closed=${it.isClosed}") }
-                            } else null
-                        }
-                        Direction.SELL -> {
-                            if (counterPrice <= candle.high) {
-                                val trade = Trade(candle.x, this)
-                                ro.executed(trade)
-                                position!!.copy(exitTrades = position!!.exitTrades + trade)
-                                    .also { println("Bull sell $trade; pos closed=${it.isClosed}") }
-                            } else null
-                        }
+                                } else null
+                            }
+                            Direction.SELL -> {
+                                if (counterPrice <= candle.high) {
+                                    val trade = Trade(candle.x, this)
+                                    ro.executed(trade)
+                                    position!!.copy(exitTrades = position!!.exitTrades + trade)
+                                        .also { println("Bull sell $trade; pos closed=${it.isClosed}") }
+                                } else null
+                            }
                     } ?: position
                     Direction.SELL -> when (direction) {
                         Direction.SELL -> {

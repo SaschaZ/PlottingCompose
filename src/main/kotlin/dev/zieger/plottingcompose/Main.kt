@@ -15,12 +15,13 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.window.*
 import dev.zieger.bybitapi.dto.enumerations.Interval
 import dev.zieger.bybitapi.dto.enumerations.Symbol
-import dev.zieger.bybitapi.utils.plus
-import dev.zieger.candleproxy.client.CandleProxyClient
-import dev.zieger.plottingcompose.bitinex.*
+import dev.zieger.candleproxy.client.CandleProxyClientSource
+import dev.zieger.plottingcompose.bitinex.BitfinexInterval
 import dev.zieger.plottingcompose.bitinex.BitfinexInterval.H1
-import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.USD
-import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.XMR
+import dev.zieger.plottingcompose.bitinex.BitfinexPair
+import dev.zieger.plottingcompose.bitinex.BitfinexSymbol
+import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.*
+import dev.zieger.plottingcompose.bitinex.RestEndpoint
 import dev.zieger.plottingcompose.definition.*
 import dev.zieger.plottingcompose.indicators.candles.*
 import dev.zieger.plottingcompose.strategy.BbStrategy
@@ -41,7 +42,7 @@ fun buildByBitFlow(
     symbol: Symbol = Symbol.BTCUSD,
     interval: Interval = Interval.H1,
     barsBack: Int = (3.5 * 365 * 24).toInt()
-) = CandleProxyClient("http://localhost", 8080).candles(
+) = CandleProxyClientSource("http://localhost", 8080, symbol, interval).candles(
     symbol,
     interval,
     TimeStamp() - barsBack * interval.duration..TimeStamp()
@@ -53,7 +54,7 @@ fun buildBitfinexFlow(
     interval: BitfinexInterval = H1,
     barsBack: Int = 10_000
 ) = RestEndpoint().candles(pair, interval, limit = barsBack)
-    .plus(SocketEndpoint(scope).candles(pair, interval))
+//    .plus(SocketEndpoint(scope).candles(pair, interval))
 
 fun main() = application {
     TimeStamp.DEFAULT_TIME_ZONE = UTC
@@ -228,7 +229,10 @@ fun main() = application {
                 ) {
                     MultiChart(
                         chartDefinition,
-                        byBitFlow,
+                        CandleProxyClientSource(
+                            "http://localhost", 8080,
+                            BitfinexPair(BTC, USD), H1
+                        ),
                         modifier = Modifier.fillMaxWidth(1f)
                     )
 //                    MultiChart(

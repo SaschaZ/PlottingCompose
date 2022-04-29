@@ -1,8 +1,12 @@
 package dev.zieger.plottingcompose.styles
 
 import androidx.compose.ui.graphics.Color
-import dev.zieger.plottingcompose.definition.*
-import dev.zieger.plottingcompose.scopes.IPlotDrawScope
+import dev.zieger.exchange.dto.Input
+import dev.zieger.plottingcompose.definition.Key
+import dev.zieger.plottingcompose.definition.Output
+import dev.zieger.plottingcompose.definition.PortValue
+import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.di.ChartScope
 
 open class Line<T : Input, D : Output>(
     private val slot: Slot<T, D>,
@@ -10,7 +14,7 @@ open class Line<T : Input, D : Output>(
     private val width: Float = 3f,
     private val lineForData: (D) -> Output.Line?
 ) : PlotStyle<T>(slot) {
-    override fun IPlotDrawScope<T>.drawSingle(
+    override fun ChartScope.drawSingle(
         idx: Long,
         value: T,
         data: Map<Key<T, *>, List<PortValue<*>>>,

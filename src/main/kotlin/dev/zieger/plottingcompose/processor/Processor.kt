@@ -2,8 +2,12 @@
 
 package dev.zieger.plottingcompose.processor
 
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.InputContainer
-import dev.zieger.plottingcompose.definition.*
+import dev.zieger.plottingcompose.definition.Key
+import dev.zieger.plottingcompose.definition.Output
+import dev.zieger.plottingcompose.definition.Port
+import dev.zieger.plottingcompose.definition.with
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlin.reflect.KClass

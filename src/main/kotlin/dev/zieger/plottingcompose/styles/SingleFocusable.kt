@@ -1,15 +1,15 @@
 package dev.zieger.plottingcompose.styles
 
-import dev.zieger.plottingcompose.definition.Input
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.PortValue
-import dev.zieger.plottingcompose.scopes.IPlotDrawScope
+import dev.zieger.plottingcompose.di.ChartScope
 
 open class SingleFocusable<I : Input>(
     private val unfocused: PlotStyle<I>,
     private val focused: PlotStyle<I>
 ) : SingleGroup<I>(*arrayOf(unfocused, focused)) {
-    override fun IPlotDrawScope<I>.drawSingle(
+    override fun ChartScope.drawSingle(
         idx: Long,
         value: I,
         data: Map<Key<I, *>, List<PortValue<*>>>,

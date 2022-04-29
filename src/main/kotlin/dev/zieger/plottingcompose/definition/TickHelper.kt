@@ -2,8 +2,6 @@
 
 package dev.zieger.plottingcompose.definition
 
-import dev.zieger.plottingcompose.scopes.range
-import dev.zieger.plottingcompose.scopes.toDouble
 import dev.zieger.utils.time.*
 import dev.zieger.utils.time.progression.step
 import java.math.MathContext
@@ -127,3 +125,9 @@ fun ClosedRange<ITimeStamp>.normalize(duration: ITimeSpan) =
     start.normalizeDown(duration)..endInclusive.normalizeUp(duration)
 
 fun ClosedRange<ITimeStamp>.normalizedProgression(duration: ITimeSpan) = normalize(duration) step duration
+fun ClosedFloatingPointRange<Float>.range() = endInclusive - start
+fun ClosedRange<Double>.range() = endInclusive - start
+fun ClosedRange<Int>.range() = endInclusive - start
+fun IntRange.range() = endInclusive - start
+
+fun ClosedRange<Int>.toDouble() = start.toDouble()..endInclusive.toDouble()

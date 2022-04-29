@@ -1,6 +1,6 @@
 package dev.zieger.plottingcompose.indicators.candles
 
-import dev.zieger.candleproxy.dto.*
+import dev.zieger.exchange.dto.*
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.Output
 import dev.zieger.plottingcompose.definition.Port

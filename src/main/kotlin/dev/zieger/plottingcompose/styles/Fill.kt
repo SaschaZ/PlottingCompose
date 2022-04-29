@@ -4,9 +4,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.InputContainer
-import dev.zieger.plottingcompose.definition.*
-import dev.zieger.plottingcompose.scopes.IPlotDrawScope
+import dev.zieger.plottingcompose.definition.Key
+import dev.zieger.plottingcompose.definition.Output
+import dev.zieger.plottingcompose.definition.PortValue
+import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.di.ChartScope
 
 class Fill<I : Input>(
     private val slot: Slot<I, Output.Scalar>,
@@ -14,7 +18,7 @@ class Fill<I : Input>(
     private val upWards: Boolean = false
 ) : PlotStyle<I>(slot) {
 
-    override fun IPlotDrawScope<I>.drawSeries(data: List<Pair<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>>) {
+    override fun ChartScope.drawSeries(data: List<Pair<InputContainer<I>, Map<Key<I, *>, List<PortValue<*>>>>>) {
         val checked = data.map { (x, d) -> Offset(x.idx.toFloat(), slot.value(d)?.scalar?.toFloat() ?: 0f).toScene() }
         if (checked.isEmpty()) return
 

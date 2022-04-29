@@ -1,27 +1,25 @@
 package dev.zieger.plottingcompose.di
 
-import dev.zieger.candleproxy.dto.CandleSource
+import dev.zieger.exchange.dto.DataSource
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.definition.ChartDefinition
-import dev.zieger.plottingcompose.indicators.candles.IndicatorCandle
 import org.koin.core.Koin
 import org.koin.core.KoinApplication
-import org.koin.core.context.startKoin
+import org.koin.dsl.koinApplication
 
 private lateinit var di: KoinApplication
 val koin: Koin get() = di.koin
 
 fun initDi(
-    definition: ChartDefinition<IndicatorCandle>,
-    candleSource: CandleSource
-) = startKoin {
+    definition: ChartDefinition<out Input>,
+    source: DataSource<out Input>
+) = koinApplication {
     modules(
         coroutineModule(),
+        inputModule(source),
         definitionModule(definition),
         indicatorModule(),
-        inputModule(candleSource),
-        strategyModule()
-    )
-    modules(
+        strategyModule(),
         *definition.charts.map { chartModule(it) }.toTypedArray()
     )
 }.also { di = it }

@@ -4,13 +4,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import dev.zieger.plottingcompose.definition.Input
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.definition.Key
 import dev.zieger.plottingcompose.definition.PortValue
 import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.di.ChartScope
 import dev.zieger.plottingcompose.indicators.candles.Ohcl
-import dev.zieger.plottingcompose.scopes.IPlotDrawScope
-import dev.zieger.plottingcompose.scopes.x
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
@@ -23,14 +22,14 @@ open class CandleSticks<I : Input>(
     private val lineWidth: Float = 0.033f
 ) : PlotStyle<I>(slot) {
 
-    override fun IPlotDrawScope<I>.drawSingle(
+    override fun ChartScope.drawSingle(
         idx: Long,
         value: I,
         data: Map<Key<I, *>, List<PortValue<*>>>,
         isFocused: Boolean
     ) {
-        if (heightDivisor.value.run { isInfinite() || isNaN() }) {
-            println("invalid heightDivisor ${heightDivisor.value}")
+        if (finalScale.y.run { isInfinite() || isNaN() }) {
+            println("invalid heightDivisor ${finalScale.y}")
             return
         }
 
@@ -39,14 +38,14 @@ open class CandleSticks<I : Input>(
             return
         }
         val bodySize = Size(
-            (0.85f / widthDivisor).toFloat(),
-            ((candle.open - candle.close).absoluteValue.toFloat() / heightDivisor.value.toFloat()).coerceAtLeast(
-                (lineWidth / widthDivisor).toFloat()
+            (0.85f / finalScale.x).toFloat(),
+            ((candle.open - candle.close).absoluteValue.toFloat() / finalScale.y).coerceAtLeast(
+                (lineWidth / finalScale.x).toFloat()
             )
         )
         val topLeft = Offset(
-            plotRect.left + (idx / widthDivisor - bodySize.width / 2).toFloat(),
-            plotRect.bottom - max(candle.open, candle.close).toFloat() / heightDivisor.value.toFloat()
+            plotRect.left + (idx / finalScale.x - bodySize.width / 2).toFloat(),
+            plotRect.bottom - max(candle.open, candle.close).toFloat() / finalScale.y
         )
 
         val color = if (candle.open <= candle.close) positiveColor else negativeColor
@@ -60,24 +59,24 @@ open class CandleSticks<I : Input>(
             lineColor,
             topLeft,
             bodySize,
-            alpha = (lineColor.alpha * (finalScale.x - 1f)).coerceIn(0.0..1.0).toFloat(),
-            style = Stroke((lineWidth / widthDivisor).toFloat())
+            alpha = (lineColor.alpha * (finalScale.x - 1f)).coerceIn(0f..1f),
+            style = Stroke(lineWidth / finalScale.x)
         )
 
         val topMid = topLeft.copy(topLeft.x + bodySize.width / 2)
         drawLine(
             lineColor,
             topMid,
-            topMid.copy(y = (plotRect.bottom - candle.high / heightDivisor.value).toFloat()),
-            (lineWidth / widthDivisor).toFloat(), alpha = lineColor.alpha
+            topMid.copy(y = (plotRect.bottom - candle.high / finalScale.y).toFloat()),
+            (lineWidth / finalScale.x).toFloat(), alpha = lineColor.alpha
         )
         val bottomMid =
-            Offset(topMid.x, plotRect.bottom - min(candle.open, candle.close).toFloat() / heightDivisor.value.toFloat())
+            Offset(topMid.x, plotRect.bottom - min(candle.open, candle.close).toFloat() / finalScale.y)
         drawLine(
             lineColor,
             bottomMid,
-            bottomMid.copy(y = (plotRect.bottom - candle.low / heightDivisor.value).toFloat()),
-            (lineWidth / widthDivisor).toFloat(), alpha = lineColor.alpha
+            bottomMid.copy(y = (plotRect.bottom - candle.low / finalScale.y).toFloat()),
+            lineWidth / finalScale.x, alpha = lineColor.alpha
         )
     }
 }

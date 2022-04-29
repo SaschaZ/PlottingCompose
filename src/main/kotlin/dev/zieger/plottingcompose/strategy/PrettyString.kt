@@ -2,7 +2,7 @@
 
 package dev.zieger.plottingcompose.strategy
 
-import dev.zieger.plottingcompose.scopes.nullWhenEmpty
+import dev.zieger.plottingcompose.nullWhenEmpty
 import java.util.*
 
 fun stringBlock(block: LineFactory.() -> Unit): String {

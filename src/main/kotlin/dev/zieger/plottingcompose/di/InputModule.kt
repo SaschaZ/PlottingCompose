@@ -1,47 +1,43 @@
 package dev.zieger.plottingcompose.di
 
-import dev.zieger.bybitapi.dto.enumerations.Interval.H1
-import dev.zieger.bybitapi.dto.enumerations.Symbol.BTCUSD
-import dev.zieger.candleproxy.dto.CandleSource
-import dev.zieger.candleproxy.dto.ICandle
+import dev.zieger.exchange.dto.DataSource
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.InputContainer
 import dev.zieger.plottingcompose.ProcessingSource
-import dev.zieger.plottingcompose.indicators.candles.IndicatorCandle
-import dev.zieger.plottingcompose.indicators.candles.IndicatorCandleImpl
 import dev.zieger.utils.time.ITimeStamp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
 import org.koin.dsl.module
 
-fun inputModule(candleSource: CandleSource) = module {
+fun inputModule(dataSource: DataSource<out Input>) = module {
 
-    single { candleSource }
-    single(PROCESSING_SOURCE) {
-        object : ProcessingSource<IndicatorCandle> {
-            val candleSource = get<CandleSource>()
+    single<ProcessingSource<Input>>(PROCESSING_SOURCE) { ProcessingSourceImpl(dataSource) }
+}
 
-            override fun input(range: ClosedRange<ITimeStamp>): Flow<InputContainer<IndicatorCandle>> =
-                this.candleSource.candles(BTCUSD, H1, range).toInputContainer()
+class ProcessingSourceImpl<out I : Input>(
+    private val dataSource: DataSource<I>
+) : ProcessingSource<I> {
+    override fun input(range: ClosedRange<ITimeStamp>): Flow<InputContainer<I>> =
+        dataSource.data(range).toInputContainer()
 
-            private fun Flow<ICandle>.toInputContainer(): Flow<InputContainer<IndicatorCandle>> {
-                var lastX: ICandle? = null
-                var lastIdx = 0L
+    private fun Flow<I>.toInputContainer(): Flow<InputContainer<I>> {
+        var lastX: Input? = null
+        var lastIdx = 0L
 
-                return mapNotNull {
-                    val x = it.time
-                    when {
-                        lastX?.time == x || lastX == null -> {
-                            lastX = it
-                            InputContainer(IndicatorCandleImpl(it), lastIdx)
-                        }
-                        lastX?.let { lx -> lx.time < x } == true -> {
-                            lastX = it
-                            InputContainer(IndicatorCandleImpl(it), ++lastIdx)
-                        }
-                        else -> null
-                    }
+        return mapNotNull {
+            val x = it.x
+            when {
+                lastX?.x == x || lastX == null -> {
+                    lastX = it
+                    InputContainer(it, lastIdx)
                 }
+                lastX?.let { lx -> lx.x.toDouble() < x.toDouble() } == true -> {
+                    lastX = it
+                    InputContainer(it, ++lastIdx)
+                }
+                else -> null
             }
         }
     }
+
 }

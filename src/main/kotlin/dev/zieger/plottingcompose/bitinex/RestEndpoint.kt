@@ -2,9 +2,9 @@
 
 package dev.zieger.plottingcompose.bitinex
 
-import dev.zieger.candleproxy.dto.ICurrency
-import dev.zieger.candleproxy.dto.IInterval
-import dev.zieger.candleproxy.dto.ISymbol
+import dev.zieger.exchange.dto.ICurrency
+import dev.zieger.exchange.dto.IInterval
+import dev.zieger.exchange.dto.ISymbol
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.BTC
 import dev.zieger.plottingcompose.bitinex.BitfinexSymbol.USD
 import dev.zieger.plottingcompose.indicators.candles.IndicatorCandle

@@ -4,6 +4,7 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -17,7 +18,6 @@ import androidx.compose.ui.input.pointer.pointerMoveFilter
 import androidx.compose.ui.layout.onSizeChanged
 import dev.zieger.plottingcompose.definition.NumData
 import dev.zieger.plottingcompose.definition.VisibleArea
-import dev.zieger.plottingcompose.scopes.x
 import java.util.*
 import kotlin.math.pow
 
@@ -42,6 +42,9 @@ interface TransformationHolder {
     fun setScaleRange(range: Pair<ClosedRange<Float>, ClosedRange<Float>>)
 
     val mousePosition: State<Offset?>
+    val mousePositionRelative: State<Offset?>
+    fun onMousePositionChanged(listener: TransformationHolder.(Offset?) -> Unit): () -> Unit
+    val scaleCenter: MutableState<Offset>
     val scaleCenterRelative: State<Offset>
 
     fun onTransformationChanged(listener: (translation: Offset, scale: Offset) -> Unit): () -> Unit {
@@ -58,8 +61,11 @@ interface TransformationHolder {
         rawXRange: ClosedRange<Float>,
         plotRect: Rect,
         numItems: Int,
-        widthDivisor: Float
+        scale: Float
     )
+
+    @Composable
+    fun buildModifier(modifier: Modifier): Modifier
 }
 
 class ObservableStateOffset {
@@ -134,7 +140,21 @@ class TransformationHolderImpl(
     override fun setScaleOffset(offset: Offset) = scaleValue.setValueOffset(offset)
     override fun setScaleRange(range: Pair<ClosedRange<Float>, ClosedRange<Float>>) = scaleValue.setValueRange(range)
 
+    private val mousePositionListener = LinkedList<TransformationHolder.(Offset?) -> Unit>()
     override val mousePosition: MutableState<Offset?> = mutableStateOf(null)
+    override val mousePositionRelative: MutableState<Offset?> = mutableStateOf(null)
+
+    private fun setMousePosition(mp: Offset?) {
+        mousePosition.value = mp
+        mousePositionRelative.value = mp?.div(sizeHolder.rootBorderRect)?.coerceIn(0f..1f, 0f..1f)
+    }
+
+    override fun onMousePositionChanged(listener: TransformationHolder.(Offset?) -> Unit): () -> Unit {
+        mousePositionListener += listener
+        return { mousePositionListener -= listener }
+    }
+
+    override val scaleCenter: MutableState<Offset> = mutableStateOf(Offset.Zero)
     override val scaleCenterRelative: MutableState<Offset> = mutableStateOf(Offset.Zero)
 
     override fun applyScaleRange(numData: Int, plotRect: Rect) {
@@ -163,9 +183,8 @@ class TransformationHolderImpl(
         rawXRange: ClosedRange<Float>,
         plotRect: Rect,
         numItems: Int,
-        widthDivisor: Float
+        scale: Float
     ) {
-        scaleOffset
         val x = /*scaleFocusedItemIdx.value?.let {
             val numVisible = numItems / finalScale.x
             val relativeVisibleIdx = (it.itemIdx - it.idxRange.start) / it.idxRange.range().toFloat()
@@ -177,9 +196,9 @@ class TransformationHolderImpl(
 //        println("transOffX=${translationOffsetX.value}; scaledFocusedItemIdx=${scaleFocusedItemIdx.value}; width=${plotRect.width}; transx=${translation.value.x}; numItems=$numItems")
     }
 
-
     @OptIn(ExperimentalComposeUiApi::class)
-    fun buildModifier(modifier: Modifier): Modifier = modifier
+    @Composable
+    override fun buildModifier(modifier: Modifier): Modifier = modifier
         .onSizeChanged { sizeHolder.chartSize.value = it }
         .scrollable(rememberScrollableState { delta ->
             processHorizontalScroll(delta)
@@ -196,9 +215,11 @@ class TransformationHolderImpl(
             }
         }.pointerMoveFilter(onExit = {
             mousePosition.value = null
+            mousePositionListener.forEach { l -> l(null) }
             false
         }, onMove = {
             mousePosition.value = it
+            mousePositionListener.forEach { l -> l(it) }
             false
         })
 
@@ -206,13 +227,16 @@ class TransformationHolderImpl(
         val prevScale = scale.value
         setScale(Offset(scale.value.x.let { it - it * 0.01 * delta }
             .coerceIn(
-                scaleRange.value.x.start / scaleOffset.value.x.toDouble()..
-                        scaleRange.value.x.endInclusive / scaleOffset.value.x.toDouble()
+                scaleRange.value.first.start / scaleOffset.value.x.toDouble()..
+                        scaleRange.value.first.endInclusive / scaleOffset.value.x.toDouble()
             ), 1.0))
         if (scale.value.x.run { isNaN() || isInfinite() })
             setScale(prevScale)
 
-        mousePosition.value?.also { mp -> scaleCenterRelative.value = mp / sizeHolder.chartSize.value }
+        mousePosition.value?.also { mp ->
+            scaleCenter.value = mp
+            scaleCenterRelative.value = mp / sizeHolder.chartSize.value
+        }
 
 //        println("scale=${scale.value}; offset=${scaleOffset.value}; final=$finalScale")
     }
@@ -227,3 +251,11 @@ class TransformationHolderImpl(
         setTranslation(translation.value.run { copy(x + dragAmount.x) })
     }
 }
+
+private fun Offset.coerceIn(
+    xRange: ClosedFloatingPointRange<Float>,
+    yRange: ClosedFloatingPointRange<Float>
+): Offset = Offset(x.coerceIn(xRange), y.coerceIn(yRange))
+
+operator fun Offset.div(rect: Rect): Offset =
+    copy((x - rect.left) / rect.width, (y - rect.top) / rect.height)

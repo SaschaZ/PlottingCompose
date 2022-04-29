@@ -6,9 +6,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.InputContainer
-import dev.zieger.plottingcompose.definition.*
-import dev.zieger.plottingcompose.scopes.IPlotDrawScope
+import dev.zieger.plottingcompose.definition.Key
+import dev.zieger.plottingcompose.definition.Output
+import dev.zieger.plottingcompose.definition.PortValue
+import dev.zieger.plottingcompose.definition.Slot
+import dev.zieger.plottingcompose.di.ChartScope
 
 open class LineSeriesValueSelect<T : Input, O : Output>(
     slot: Slot<T, O>,
@@ -44,7 +48,7 @@ open class LineSeriesSelect<T : Input, O : Output, C : Output>(
     private val valueSelector: (O) -> Float?
 ) : PlotStyle<T>(slot, colorSlot) {
 
-    override fun IPlotDrawScope<T>.drawSeries(data: List<Pair<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>>>) {
+    override fun ChartScope.drawSeries(data: List<Pair<InputContainer<T>, Map<Key<T, *>, List<PortValue<*>>>>>) {
         if (data.isEmpty()) return
 
         fun Path.draw(color: Color) = drawPath(this, color, color.alpha, Stroke(lineWidth))

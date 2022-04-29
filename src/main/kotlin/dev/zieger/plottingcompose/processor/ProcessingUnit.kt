@@ -2,6 +2,7 @@
 
 package dev.zieger.plottingcompose.processor
 
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.definition.*
 import java.util.*
 

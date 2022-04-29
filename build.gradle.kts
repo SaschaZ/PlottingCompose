@@ -32,7 +32,7 @@ dependencies {
     implementation("dev.zieger:tablecomposable:1.0.2")
 
     implementation("dev.zieger.candleproxy:client:1.0.0")
-    implementation("dev.zieger.candleproxy:dto:1.0.0")
+    implementation("dev.zieger.exchange:dto:1.0.0")
 
     val kotlinSerializationVersion: String by project
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")

@@ -4,8 +4,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import dev.zieger.exchange.dto.Input
 import dev.zieger.plottingcompose.styles.PlotStyle
 import org.jetbrains.skia.Typeface
+import org.koin.core.component.KoinScopeComponent
+import org.koin.core.scope.Scope
 
 class ChartDefinition<T : Input>(
     vararg chart: Chart<T>,
@@ -75,11 +78,13 @@ class Chart<T : Input>(
     val gridColor: Color = Color(0x11FFFFFF),
     val tickColor: Color = Color.Gray,
     val tickLabelColor: Color = Color.Gray
-) {
+) : KoinScopeComponent {
     lateinit var definition: ChartDefinition<T>
     lateinit var visibleArea: VisibleArea
     val plots: List<PlotStyle<T>> = plot.toList()
 
     internal fun slot(key: Key<*, *>, port: Port<*>): Slot<*, *>? =
         plots.firstNotNullOfOrNull { p -> p.slots.firstOrNull { it.key == key && it.port == port } }
+
+    override lateinit var scope: Scope
 }
